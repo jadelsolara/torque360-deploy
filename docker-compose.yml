@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: torque360_pg
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: torque360
+      POSTGRES_USER: torque
+      POSTGRES_PASSWORD: torque360_dev
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./apps/api/src/database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U torque -d torque360"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - torque-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: torque360_redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - torque-network
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: torque360_meili
+    ports:
+      - "7700:7700"
+    environment:
+      MEILI_MASTER_KEY: torque360_search_dev
+      MEILI_ENV: development
+    volumes:
+      - meili_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - torque-network
+
+networks:
+  torque-network:
+    driver: bridge
+
+volumes:
+  pg_data:
+  redis_data:
+  meili_data:

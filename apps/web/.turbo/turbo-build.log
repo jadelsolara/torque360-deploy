@@ -1,0 +1,55 @@
+
+> @torque360/web@0.1.0 build /home/jose-antonio/Desktop/Proyectos/Torque360/apps/web
+> next build
+
+   ▲ Next.js 15.5.12
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.6s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/28) ...
+   Generating static pages (7/28) 
+   Generating static pages (14/28) 
+   Generating static pages (21/28) 
+ ✓ Generating static pages (28/28)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                      126 B         102 kB
+├ ○ /_not-found                            994 B         103 kB
+├ ○ /aprobaciones                        3.34 kB         105 kB
+├ ○ /bodega                              3.19 kB         105 kB
+├ ○ /capacitacion                        5.83 kB         108 kB
+├ ○ /clientes                            2.99 kB         105 kB
+├ ○ /cobranza                            8.25 kB         110 kB
+├ ○ /command-center                      7.14 kB         109 kB
+├ ○ /cotizaciones                        2.85 kB         105 kB
+├ ○ /dashboard                            4.3 kB         106 kB
+├ ○ /facturacion                         8.47 kB         110 kB
+├ ○ /importaciones                       7.85 kB         110 kB
+├ ○ /importaciones/portal                 6.7 kB         109 kB
+├ ○ /informes                            7.58 kB         109 kB
+├ ○ /inventario                          4.75 kB         107 kB
+├ ○ /login                                2.6 kB         108 kB
+├ ○ /mi-vehiculo                         10.5 kB         112 kB
+├ ○ /ordenes                             3.03 kB         105 kB
+├ ○ /portal-clientes                     5.89 kB         108 kB
+├ ƒ /portal/[token]                      7.16 kB         109 kB
+├ ○ /proveedores/cuentas                 10.6 kB         112 kB
+├ ○ /register                            2.84 kB         108 kB
+├ ○ /respaldos                           6.96 kB         109 kB
+├ ○ /rrhh                                10.5 kB         112 kB
+├ ○ /seguimiento                         7.41 kB         109 kB
+├ ○ /trazabilidad                        3.89 kB         106 kB
+└ ○ /vehiculos                           3.04 kB         105 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/743-33720d133c383396.js       45.7 kB
+  ├ chunks/8e6518bb-c26e82767f1faf66.js  54.2 kB
+  └ other shared chunks (total)          1.92 kB
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

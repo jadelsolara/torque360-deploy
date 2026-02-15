@@ -1,0 +1,29 @@
+{
+  "name": "torque360",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TORQUE 360 — ERP SaaS para la industria automotriz chilena",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:reset": "docker compose down -v && docker compose up -d",
+    "deploy:staging": "./deploy/scripts/deploy.sh staging",
+    "deploy:production": "./deploy/scripts/deploy.sh production"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
