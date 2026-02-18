@@ -35,6 +35,12 @@ export class StockMovement {
   @Column({ name: 'reference_id', nullable: true })
   referenceId: string;
 
+  @Column({ name: 'unit_cost', type: 'decimal', precision: 14, scale: 4, nullable: true })
+  unitCost: number;
+
+  @Column({ name: 'average_cost_after', type: 'decimal', precision: 14, scale: 4, nullable: true })
+  averageCostAfter: number;
+
   @Column({ type: 'text', nullable: true })
   reason: string;
 

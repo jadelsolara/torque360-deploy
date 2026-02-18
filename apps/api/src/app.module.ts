@@ -1,7 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validate } from './common/config';
 import { RedisModule } from './common/redis';
 import { SearchModule } from './common/search';
@@ -39,6 +40,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { HealthModule } from './modules/health/health.module';
 import { Company360Module } from './modules/company360/company360.module';
 import { NetworkModule } from './modules/network/network.module';
+import { BillingModule } from './modules/billing/billing.module';
 
 @Module({
   imports: [
@@ -109,6 +111,13 @@ import { NetworkModule } from './modules/network/network.module';
     BackupModule,
     HealthModule,
     NetworkModule,
+    BillingModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

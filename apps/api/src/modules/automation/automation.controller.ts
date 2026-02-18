@@ -101,13 +101,14 @@ export class AutomationController {
     return this.automationService.deleteRule(tenantId, id);
   }
 
-  // ─── EVALUATION (internal, no auth) ──────────────────────────────────
+  // ─── EVALUATION (protected) ──────────────────────────────────────────
 
   /**
    * Evaluate automation rules against an event.
-   * Internal endpoint — called by other services, no auth guard.
+   * Requires JWT authentication.
    */
   @Post('evaluate')
+  @UseGuards(AuthGuard('jwt'))
   evaluate(
     @Body() body: {
       tenantId: string;

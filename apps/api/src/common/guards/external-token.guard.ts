@@ -76,9 +76,14 @@ export class ExternalTokenGuard implements CanActivate {
       accessCount: () => 'access_count + 1',
     } as any);
 
-    // Set tenant RLS context
+    // Set tenant RLS context — parameterized to prevent SQL injection
+    const tenantId = matchedAccess.tenantId;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) {
+      throw new ForbiddenException('Invalid tenant ID format');
+    }
     await this.dataSource.query(
-      `SET LOCAL app.current_tenant_id = '${matchedAccess.tenantId}'`,
+      `SET LOCAL app.current_tenant_id = $1`,
+      [tenantId],
     );
 
     // Track IP address

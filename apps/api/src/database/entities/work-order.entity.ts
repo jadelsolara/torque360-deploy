@@ -62,6 +62,9 @@ export class WorkOrder {
   @OneToMany(() => WorkOrderPart, (p) => p.workOrder)
   parts: WorkOrderPart[];
 
+  @Column({ name: 'due_date', type: 'timestamptz', nullable: true })
+  dueDate: Date;
+
   @Column({ name: 'started_at', type: 'timestamptz', nullable: true })
   startedAt: Date;
 

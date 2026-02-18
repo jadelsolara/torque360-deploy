@@ -1,1 +1,35 @@
-node_modules/\ndist/\n.next/\n.turbo/\n*.log
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+.turbo/
+
+# Logs
+*.log
+
+# Environment files (contain secrets — NEVER commit)
+.env
+.env.local
+.env.production
+.env.staging
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes
+data/
+
+# SSL certificates
+deploy/nginx/ssl/*.key
+deploy/nginx/ssl/*.crt
+deploy/nginx/ssl/*.pem

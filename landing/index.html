@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TORQUE 360 — ERP Automotriz Inteligente</title>
+<meta name="description" content="El ERP automotriz más completo de LATAM. Taller, inventario, facturación, CRM, RRHH y marketplace B2B. Desde $0/mes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0f;--bg2:#111118;--bg3:#1a1a25;
+  --t1:#ffffff;--t2:#a0a0b8;--t3:#6b6b80;
+  --accent:#ff6b2b;--accent2:#ff8f5e;--accent-glow:rgba(255,107,43,0.15);
+  --blue:#3b82f6;--green:#22c55e;--red:#ef4444;--purple:#a855f7;
+  --border:#2a2a3a;--card:#15151f;
+  --radius:12px;--radius-lg:20px;
+}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);line-height:1.6;overflow-x:hidden}
+a{color:var(--accent);text-decoration:none;transition:.2s}
+a:hover{color:var(--accent2)}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:1rem 2rem;backdrop-filter:blur(20px);background:rgba(10,10,15,.8);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.nav-logo{font-weight:800;font-size:1.4rem;letter-spacing:-.02em;display:flex;align-items:center;gap:.6rem}
+.nav-logo span{color:var(--accent)}
+.nav-links{display:flex;gap:2rem;align-items:center}
+.nav-links a{color:var(--t2);font-size:.9rem;font-weight:500}
+.nav-links a:hover{color:var(--t1)}
+.nav-cta{background:var(--accent);color:#fff;padding:.6rem 1.4rem;border-radius:8px;font-weight:600;font-size:.9rem;transition:.3s}
+.nav-cta:hover{background:var(--accent2);color:#fff;transform:translateY(-1px)}
+.nav-toggle{display:none;background:none;border:none;color:var(--t1);font-size:1.5rem;cursor:pointer}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:8rem 2rem 4rem;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 20%,rgba(255,107,43,.08) 0%,transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(59,130,246,.06) 0%,transparent 50%);animation:heroGlow 15s ease infinite alternate}
+@keyframes heroGlow{0%{transform:translate(0,0)}100%{transform:translate(-3%,3%)}}
+.hero-content{position:relative;max-width:900px}
+.hero-badge{display:inline-flex;align-items:center;gap:.5rem;background:var(--accent-glow);border:1px solid rgba(255,107,43,.3);border-radius:100px;padding:.4rem 1.2rem;font-size:.8rem;font-weight:600;color:var(--accent);margin-bottom:2rem;letter-spacing:.05em;text-transform:uppercase}
+.hero h1{font-size:clamp(2.5rem,6vw,4.5rem);font-weight:900;line-height:1.05;letter-spacing:-.03em;margin-bottom:1.5rem}
+.hero h1 .gradient{background:linear-gradient(135deg,var(--accent),var(--accent2),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{font-size:1.2rem;color:var(--t2);max-width:600px;margin:0 auto 2.5rem}
+.hero-buttons{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn{padding:.9rem 2rem;border-radius:10px;font-weight:600;font-size:1rem;cursor:pointer;transition:.3s;border:none;display:inline-flex;align-items:center;gap:.5rem}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-2px);box-shadow:0 10px 40px rgba(255,107,43,.3)}
+.btn-secondary{background:transparent;color:var(--t1);border:1px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.hero-stats{display:flex;gap:3rem;justify-content:center;margin-top:4rem;flex-wrap:wrap}
+.hero-stat{text-align:center}
+.hero-stat .num{font-size:2rem;font-weight:800;color:var(--accent)}
+.hero-stat .label{font-size:.8rem;color:var(--t3);text-transform:uppercase;letter-spacing:.05em}
+
+/* SECTIONS */
+section{padding:6rem 2rem}
+.container{max-width:1200px;margin:0 auto}
+.section-label{display:inline-block;font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:.8rem;background:var(--accent-glow);padding:.3rem .8rem;border-radius:100px}
+.section-title{font-size:clamp(2rem,4vw,3rem);font-weight:800;letter-spacing:-.02em;margin-bottom:1rem}
+.section-desc{font-size:1.1rem;color:var(--t2);max-width:600px}
+
+/* PROBLEM */
+.problem{background:var(--bg2)}
+.problem-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem;margin-top:3rem}
+.problem-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;transition:.3s}
+.problem-card:hover{border-color:var(--red);transform:translateY(-2px)}
+.problem-card .icon{font-size:2rem;margin-bottom:1rem}
+.problem-card h3{font-size:1.1rem;font-weight:700;margin-bottom:.5rem}
+.problem-card p{color:var(--t2);font-size:.9rem}
+
+/* MODULES */
+.modules-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:1.5rem;margin-top:3rem}
+.module-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;transition:.3s;position:relative;overflow:hidden}
+.module-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.module-card::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--blue));opacity:0;transition:.3s}
+.module-card:hover::after{opacity:1}
+.module-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:1.2rem}
+.module-card h3{font-size:1.15rem;font-weight:700;margin-bottom:.6rem}
+.module-card p{color:var(--t2);font-size:.9rem;margin-bottom:1rem}
+.module-tag{display:inline-block;font-size:.7rem;font-weight:600;padding:.2rem .6rem;border-radius:6px;text-transform:uppercase;letter-spacing:.03em}
+.tag-live{background:rgba(34,197,94,.15);color:var(--green)}
+.tag-dev{background:rgba(59,130,246,.15);color:var(--blue)}
+.tag-plan{background:rgba(168,85,247,.15);color:var(--purple)}
+
+/* COMPARISON */
+.comparison{background:var(--bg2)}
+.comp-table{width:100%;border-collapse:collapse;margin-top:3rem;font-size:.85rem}
+.comp-table th,.comp-table td{padding:.8rem 1rem;text-align:left;border-bottom:1px solid var(--border)}
+.comp-table thead th{background:var(--card);font-weight:700;color:var(--t2);text-transform:uppercase;font-size:.7rem;letter-spacing:.05em;position:sticky;top:60px}
+.comp-table .highlight{background:rgba(255,107,43,.05)}
+.comp-table .highlight th,.comp-table .highlight td{color:var(--accent);font-weight:700}
+.check{color:var(--green)}
+.cross{color:var(--red)}
+.partial{color:#f59e0b}
+.comp-scroll{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+
+/* PRICING */
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem;margin-top:3rem}
+.price-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2.5rem 2rem;text-align:center;transition:.3s;position:relative}
+.price-card:hover{transform:translateY(-4px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.price-card.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(255,107,43,.08),var(--card))}
+.price-card.featured::before{content:'MAS POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:.65rem;font-weight:700;padding:.3rem 1rem;border-radius:100px;letter-spacing:.1em}
+.price-name{font-size:1rem;font-weight:600;color:var(--t2);margin-bottom:.5rem}
+.price-amount{font-size:3rem;font-weight:900;margin-bottom:.3rem}
+.price-amount sup{font-size:1.2rem;font-weight:600}
+.price-period{font-size:.8rem;color:var(--t3);margin-bottom:2rem}
+.price-features{list-style:none;text-align:left;margin-bottom:2rem}
+.price-features li{padding:.5rem 0;font-size:.85rem;color:var(--t2);display:flex;align-items:start;gap:.5rem}
+.price-features li::before{content:'✓';color:var(--green);font-weight:700;flex-shrink:0}
+.price-btn{width:100%;padding:.8rem;border-radius:10px;font-weight:600;cursor:pointer;transition:.3s;border:none;font-size:.9rem}
+.price-btn-primary{background:var(--accent);color:#fff}
+.price-btn-primary:hover{background:var(--accent2)}
+.price-btn-outline{background:transparent;color:var(--t1);border:1px solid var(--border)}
+.price-btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+
+/* TECH */
+.tech-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1.5rem;margin-top:3rem}
+.tech-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;transition:.3s}
+.tech-item:hover{border-color:var(--accent)}
+.tech-item .icon{font-size:2rem;margin-bottom:.8rem}
+.tech-item h4{font-size:.95rem;font-weight:700;margin-bottom:.3rem}
+.tech-item p{font-size:.8rem;color:var(--t3)}
+
+/* TESTIMONIAL */
+.testimonial{background:var(--bg2);text-align:center}
+.quote{font-size:1.5rem;font-weight:300;font-style:italic;color:var(--t2);max-width:700px;margin:2rem auto;line-height:1.6}
+.quote-author{font-weight:600;color:var(--t1)}
+
+/* CTA */
+.cta{text-align:center;padding:8rem 2rem;position:relative;overflow:hidden}
+.cta::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(255,107,43,.1) 0%,transparent 70%)}
+.cta h2{font-size:clamp(2rem,4vw,3.5rem);font-weight:900;margin-bottom:1rem;position:relative}
+.cta p{font-size:1.1rem;color:var(--t2);margin-bottom:2rem;position:relative}
+
+/* FOOTER */
+footer{background:var(--bg2);border-top:1px solid var(--border);padding:3rem 2rem}
+.footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:3rem;max-width:1200px;margin:0 auto}
+.footer-brand h3{font-size:1.2rem;font-weight:800;margin-bottom:.5rem}
+.footer-brand h3 span{color:var(--accent)}
+.footer-brand p{color:var(--t3);font-size:.85rem}
+.footer-col h4{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--t3);margin-bottom:1rem}
+.footer-col a{display:block;color:var(--t2);font-size:.85rem;padding:.3rem 0;transition:.2s}
+.footer-col a:hover{color:var(--accent)}
+.footer-bottom{text-align:center;padding-top:2rem;margin-top:2rem;border-top:1px solid var(--border);color:var(--t3);font-size:.8rem;max-width:1200px;margin-left:auto;margin-right:auto}
+
+/* MOBILE */
+@media(max-width:768px){
+  .nav-links{display:none}
+  .nav-toggle{display:block}
+  .nav-links.open{display:flex;flex-direction:column;position:absolute;top:100%;left:0;right:0;background:var(--bg2);padding:1.5rem;border-bottom:1px solid var(--border);gap:1rem}
+  .hero h1{font-size:2.2rem}
+  .hero-stats{gap:1.5rem}
+  .comp-table{font-size:.75rem}
+  .comp-table th,.comp-table td{padding:.5rem}
+  .footer-grid{grid-template-columns:1fr 1fr}
+  .pricing-grid{grid-template-columns:1fr}
+}
+
+/* ANIMATIONS */
+.fade-up{opacity:0;transform:translateY(30px);transition:.6s ease-out}
+.fade-up.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">⚡ TORQUE<span>360</span></div>
+  <div class="nav-links" id="navLinks">
+    <a href="#modulos">Modulos</a>
+    <a href="#comparativa">Comparativa</a>
+    <a href="#precios">Precios</a>
+    <a href="#tecnologia">Tecnologia</a>
+    <a href="#contacto" class="nav-cta">Probar Gratis →</a>
+  </div>
+  <button class="nav-toggle" onclick="document.getElementById('navLinks').classList.toggle('open')">☰</button>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-content">
+    <div class="hero-badge">🚀 Lanzamiento 2026 — LATAM First</div>
+    <h1>El ERP automotriz que tu taller <span class="gradient">realmente necesita</span></h1>
+    <p>Ordenes de trabajo, inventario, facturacion electronica, CRM, RRHH y marketplace B2B. Todo en uno. Desde $0/mes.</p>
+    <div class="hero-buttons">
+      <a href="#precios" class="btn btn-primary">Comenzar Gratis →</a>
+      <a href="#modulos" class="btn btn-secondary">Ver Modulos</a>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><div class="num">28+</div><div class="label">Modulos</div></div>
+      <div class="hero-stat"><div class="num">$0</div><div class="label">Para empezar</div></div>
+      <div class="hero-stat"><div class="num">1 dia</div><div class="label">Setup</div></div>
+      <div class="hero-stat"><div class="num">3</div><div class="label">Paises LATAM</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="problem" id="problema">
+  <div class="container fade-up">
+    <span class="section-label">El Problema</span>
+    <h2 class="section-title">Los ERP actuales no entienden tu taller</h2>
+    <p class="section-desc">SAP cuesta una fortuna. Softland es de los 90s. Kame no escala. Ningun ERP generico maneja ordenes de trabajo automotrices de verdad.</p>
+    <div class="problem-grid">
+      <div class="problem-card">
+        <div class="icon">💸</div>
+        <h3>Implementacion carísima</h3>
+        <p>SAP B1: $8K-$50K de implementacion. Dynamics: hasta $100K. Primer año TCO con 10 usuarios: $15K-$170K. Inaccesible para LATAM.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🐌</div>
+        <h3>Meses para deployar</h3>
+        <p>3 a 6 meses de implementacion tipica. Consultores externos requeridos. Tu taller no puede esperar.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">🔧</div>
+        <h3>Sin ADN automotriz</h3>
+        <p>Ningún ERP enterprise tiene ordenes de trabajo de taller, gestion de vehiculos, VIN decoding, o cross-reference de partes OEM nativos.</p>
+      </div>
+      <div class="problem-card">
+        <div class="icon">📱</div>
+        <h3>UX del siglo pasado</h3>
+        <p>Interfaces legacy, sin mobile real, sin offline. Los tecnicos no pueden usar un ERP desde el pit del taller.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULES -->
+<section id="modulos">
+  <div class="container fade-up">
+    <span class="section-label">Modulos</span>
+    <h2 class="section-title">Todo lo que tu operacion necesita</h2>
+    <p class="section-desc">28+ modulos especificamente diseñados para talleres automotrices, distribuidores de repuestos y redes de servicio.</p>
+    <div class="modules-grid">
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(255,107,43,.15)">🔧</div>
+        <h3>Ordenes de Trabajo</h3>
+        <p>Recepcion de vehiculo → diagnostico → asignacion → ejecucion → entrega. Flujo completo con estados, aprobaciones y firma digital.</p>
+        <span class="module-tag tag-live">Operativo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(59,130,246,.15)">📦</div>
+        <h3>Inventario WMS</h3>
+        <p>Multi-bodega, locaciones (bin/shelf), costo promedio ponderado (CPP), serial/lote, alertas min/max, barcode scanning.</p>
+        <span class="module-tag tag-live">Operativo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(34,197,94,.15)">🧾</div>
+        <h3>Facturacion Electronica</h3>
+        <p>DTE Chile (SII) nativo. CFDI Mexico (SAT) y FE Colombia (DIAN) en desarrollo. Multi-moneda, cotizaciones, notas de credito.</p>
+        <span class="module-tag tag-dev">En Desarrollo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(168,85,247,.15)">🚗</div>
+        <h3>Gestion de Vehiculos</h3>
+        <p>Ficha completa por VIN, historial de servicio, QR por vehiculo, recall tracking, kilometraje, documentacion.</p>
+        <span class="module-tag tag-live">Operativo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(236,72,153,.15)">📊</div>
+        <h3>CRM Automotriz</h3>
+        <p>Pipeline de clientes, seguimiento de cotizaciones, recordatorios de servicio, integracion WhatsApp nativa.</p>
+        <span class="module-tag tag-dev">En Desarrollo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(20,184,166,.15)">👥</div>
+        <h3>RRHH & Payroll</h3>
+        <p>Gestion de tecnicos, rendimiento, asistencia, payroll Chile (AFP/Isapre), vacaciones, contratos.</p>
+        <span class="module-tag tag-live">Operativo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(245,158,11,.15)">📈</div>
+        <h3>Contabilidad</h3>
+        <p>General Ledger completo, plan de cuentas, centros de costo, conciliacion bancaria, reportes financieros.</p>
+        <span class="module-tag tag-live">Operativo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(99,102,241,.15)">🤖</div>
+        <h3>AI Copilot</h3>
+        <p>Prediccion de demanda, diagnostico asistido, recomendaciones de repuestos, analisis de rentabilidad automatico.</p>
+        <span class="module-tag tag-dev">En Desarrollo</span>
+      </div>
+      <div class="module-card">
+        <div class="module-icon" style="background:rgba(239,68,68,.15)">🌐</div>
+        <h3>TORQUE Network</h3>
+        <p>Marketplace B2B entre talleres. Compra/vende repuestos en tu red. Precios de mayorista sin intermediarios.</p>
+        <span class="module-tag tag-plan">Planificado</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section class="comparison" id="comparativa">
+  <div class="container fade-up">
+    <span class="section-label">Comparativa</span>
+    <h2 class="section-title">TORQUE 360 vs. la competencia</h2>
+    <p class="section-desc">Comparacion directa con los ERPs enterprise y soluciones locales LATAM.</p>
+    <div class="comp-scroll">
+      <table class="comp-table">
+        <thead>
+          <tr>
+            <th>Caracteristica</th>
+            <th>SAP B1</th>
+            <th>Dynamics 365</th>
+            <th>Kame</th>
+            <th>Softland</th>
+            <th class="highlight">TORQUE 360</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Precio/user/mes</strong></td>
+            <td>$38-$91</td>
+            <td>$80-$110</td>
+            <td>~$70-$140</td>
+            <td>~$100+</td>
+            <td class="highlight"><strong>$0-$69</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Implementacion</strong></td>
+            <td>$8K-$50K</td>
+            <td>$10K-$100K</td>
+            <td>~$3K</td>
+            <td>~$5K</td>
+            <td class="highlight"><strong>$0 (self-service)</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Tiempo deploy</strong></td>
+            <td>3-6 meses</td>
+            <td>3-6 meses</td>
+            <td>1-2 meses</td>
+            <td>1-3 meses</td>
+            <td class="highlight"><strong>1-7 dias</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Ordenes taller</strong></td>
+            <td><span class="cross">✗</span> No nativo</td>
+            <td><span class="cross">✗</span> No nativo</td>
+            <td><span class="cross">✗</span> No</td>
+            <td><span class="cross">✗</span> No</td>
+            <td class="highlight"><span class="check">✓</span> <strong>Nativo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Gestion vehiculos</strong></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~</span> Add-on</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>Nativo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>AI integrado</strong></td>
+            <td><span class="partial">~</span> Joule (add-on)</td>
+            <td><span class="check">✓</span> Copilot</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>Nativo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>DTE Chile (SII)</strong></td>
+            <td><span class="partial">~</span> Via partner</td>
+            <td><span class="partial">~</span> Via partner</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="check">✓</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>Nativo</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Mobile real</strong></td>
+            <td><span class="cross">✗</span> Limitada</td>
+            <td><span class="check">✓</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>PWA nativa</strong></td>
+          </tr>
+          <tr>
+            <td><strong>Marketplace B2B</strong></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="cross">✗</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>TORQUE Network</strong></td>
+          </tr>
+          <tr>
+            <td><strong>RRHH incluido</strong></td>
+            <td><span class="cross">✗</span> Add-on</td>
+            <td><span class="cross">✗</span> $210/user</td>
+            <td><span class="cross">✗</span></td>
+            <td><span class="partial">~</span></td>
+            <td class="highlight"><span class="check">✓</span> <strong>Incluido</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="precios">
+  <div class="container fade-up">
+    <span class="section-label">Precios</span>
+    <h2 class="section-title">Transparente. Sin sorpresas.</h2>
+    <p class="section-desc">$0 de implementacion. Sin contratos anuales. Escala cuando lo necesites.</p>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <div class="price-name">Starter</div>
+        <div class="price-amount">$0</div>
+        <div class="price-period">gratis para siempre</div>
+        <ul class="price-features">
+          <li>1 usuario</li>
+          <li>50 ordenes de trabajo/mes</li>
+          <li>100 items inventario</li>
+          <li>Facturacion basica</li>
+          <li>Dashboard con metricas</li>
+          <li>Soporte comunidad</li>
+        </ul>
+        <button class="price-btn price-btn-outline">Comenzar Gratis</button>
+      </div>
+      <div class="price-card featured">
+        <div class="price-name">Professional</div>
+        <div class="price-amount"><sup>$</sup>39<sup>/user</sup></div>
+        <div class="price-period">por mes — el favorito de talleres</div>
+        <ul class="price-features">
+          <li>Hasta 10 usuarios</li>
+          <li>Ordenes ilimitadas</li>
+          <li>WMS completo (multi-bodega)</li>
+          <li>CRM + pipeline</li>
+          <li>DTE Chile (SII) nativo</li>
+          <li>API REST completa</li>
+          <li>Soporte email prioritario</li>
+        </ul>
+        <button class="price-btn price-btn-primary">Comenzar 14 dias gratis →</button>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Business</div>
+        <div class="price-amount"><sup>$</sup>69<sup>/user</sup></div>
+        <div class="price-period">por mes — para redes de talleres</div>
+        <ul class="price-features">
+          <li>Usuarios ilimitados</li>
+          <li>Multi-sucursal</li>
+          <li>AI Copilot integrado</li>
+          <li>RRHH + Payroll (Chile)</li>
+          <li>TORQUE Network (B2B)</li>
+          <li>Contabilidad avanzada</li>
+          <li>CFDI Mexico + FE Colombia</li>
+          <li>Soporte dedicado + SLA</li>
+        </ul>
+        <button class="price-btn price-btn-outline">Contactar Ventas</button>
+      </div>
+      <div class="price-card">
+        <div class="price-name">Enterprise</div>
+        <div class="price-amount">Custom</div>
+        <div class="price-period">para distribuidores + OEMs</div>
+        <ul class="price-features">
+          <li>On-premise (Docker)</li>
+          <li>White label</li>
+          <li>Integraciones custom</li>
+          <li>SLA 99.9% garantizado</li>
+          <li>Manager de cuenta dedicado</li>
+          <li>Training presencial</li>
+          <li>Desarrollo de modulos a medida</li>
+        </ul>
+        <button class="price-btn price-btn-outline">Hablar con Equipo →</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TECH -->
+<section id="tecnologia" style="background:var(--bg2)">
+  <div class="container fade-up">
+    <span class="section-label">Tecnologia</span>
+    <h2 class="section-title">Construido con el stack del futuro</h2>
+    <p class="section-desc">No es un monolito legacy con un CSS moderno encima. Es cloud-native desde el nucleo.</p>
+    <div class="tech-grid">
+      <div class="tech-item">
+        <div class="icon">⚡</div>
+        <h4>NestJS + TypeScript</h4>
+        <p>API modular, type-safe, enterprise-grade</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🖥️</div>
+        <h4>Next.js 15 + React 19</h4>
+        <p>Frontend con Server Components + Streaming</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🐘</div>
+        <h4>PostgreSQL + RLS</h4>
+        <p>Row-Level Security nativa, multi-tenant real</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🔴</div>
+        <h4>Redis</h4>
+        <p>Cache, queues, real-time pub/sub</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🔍</div>
+        <h4>Meilisearch</h4>
+        <p>Busqueda de partes en < 50ms</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🐳</div>
+        <h4>Docker + K8s Ready</h4>
+        <p>Cloud o on-premise, tu eliges</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">🤖</div>
+        <h4>AI Nativo</h4>
+        <p>LLM integrado para prediccion y copilot</p>
+      </div>
+      <div class="tech-item">
+        <div class="icon">📱</div>
+        <h4>PWA Offline</h4>
+        <p>Funciona sin internet, sync al volver</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TORQUE NETWORK -->
+<section>
+  <div class="container fade-up" style="text-align:center">
+    <span class="section-label">El Moat</span>
+    <h2 class="section-title">TORQUE Network</h2>
+    <p class="section-desc" style="margin:0 auto 2rem;max-width:700px">El primer marketplace B2B entre talleres automotrices de LATAM. Compra y vende repuestos en tu red de confianza. Precios de mayorista, sin intermediarios. Cada taller conectado hace la red mas fuerte.</p>
+    <div style="display:flex;gap:2rem;justify-content:center;flex-wrap:wrap;margin-top:2rem">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;flex:1;min-width:200px;max-width:280px">
+        <div style="font-size:2.5rem;font-weight:900;color:var(--accent)">$0</div>
+        <div style="color:var(--t2);font-size:.9rem">Comision para el vendedor</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;flex:1;min-width:200px;max-width:280px">
+        <div style="font-size:2.5rem;font-weight:900;color:var(--blue)">24h</div>
+        <div style="color:var(--t2);font-size:.9rem">Delivery entre talleres</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:2rem;flex:1;min-width:200px;max-width:280px">
+        <div style="font-size:2.5rem;font-weight:900;color:var(--green)">∞</div>
+        <div style="color:var(--t2);font-size:.9rem">Network effect — mas talleres = mas stock</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta" id="contacto">
+  <h2>Tu taller merece un ERP del siglo XXI</h2>
+  <p>Setup en 1 dia. $0 para empezar. Sin tarjeta de credito. Sin consultores.</p>
+  <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap;position:relative">
+    <a href="#" class="btn btn-primary" style="font-size:1.1rem;padding:1rem 2.5rem">Crear Cuenta Gratis →</a>
+    <a href="#" class="btn btn-secondary" style="font-size:1.1rem;padding:1rem 2.5rem">Agendar Demo</a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <h3>⚡ TORQUE<span>360</span></h3>
+      <p>ERP automotriz cloud-native para LATAM. Hecho en Chile, construido para el mundo.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Producto</h4>
+      <a href="#modulos">Modulos</a>
+      <a href="#precios">Precios</a>
+      <a href="#comparativa">Comparativa</a>
+      <a href="#tecnologia">Stack</a>
+    </div>
+    <div class="footer-col">
+      <h4>Recursos</h4>
+      <a href="#">Documentacion</a>
+      <a href="#">API Reference</a>
+      <a href="#">Status Page</a>
+      <a href="#">Changelog</a>
+    </div>
+    <div class="footer-col">
+      <h4>Empresa</h4>
+      <a href="#">Contacto</a>
+      <a href="#">Terminos</a>
+      <a href="#">Privacidad</a>
+      <a href="#">Blog</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2026 TORQUE 360. Todos los derechos reservados.
+  </div>
+</footer>
+
+<script>
+// Scroll animations
+const obs=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target)}})},{threshold:.1,rootMargin:'0px 0px -50px 0px'});
+document.querySelectorAll('.fade-up').forEach(el=>obs.observe(el));
+
+// Smooth scroll for nav links
+document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});document.getElementById('navLinks').classList.remove('open')})});
+</script>
+
+</body>
+</html>
