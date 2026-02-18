@@ -41,3 +41,4 @@ export { ReportRequest } from './report-request.entity';
 export { DataExport } from './data-export.entity';
 export { BackupRecord } from './backup-record.entity';
 export { StorageMetric } from './storage-metric.entity';
+export { RefreshToken } from './refresh-token.entity';
