@@ -75,7 +75,7 @@ export class BackupService {
         : config.cloudRetentionDays;
     const expiresAt = new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000);
 
-    // Simulated table list and row counts for the tenant
+    // Get real table list and row counts from the database
     const tablesIncluded = [
       'clients', 'vehicles', 'work_orders', 'work_order_parts',
       'inventory_items', 'stock_movements', 'invoices', 'invoice_items',
@@ -84,14 +84,27 @@ export class BackupService {
 
     const rowCounts: Record<string, number> = {};
     for (const table of tablesIncluded) {
-      rowCounts[table] = Math.floor(Math.random() * 5000) + 100;
+      try {
+        const result = tenantId
+          ? await this.dataSource.query(
+              `SELECT COUNT(*) AS count FROM "${table}" WHERE tenant_id = $1`,
+              [tenantId],
+            )
+          : await this.dataSource.query(
+              `SELECT COUNT(*) AS count FROM "${table}"`,
+            );
+        rowCounts[table] = parseInt(result[0]?.count || '0', 10);
+      } catch {
+        // Table might not exist yet — skip
+        rowCounts[table] = 0;
+      }
     }
 
     const totalRows = Object.values(rowCounts).reduce((sum, c) => sum + c, 0);
-    // Simulated size: ~500 bytes per row average
+    // Estimate ~500 bytes per row average for compressed SQL dump
     const sizeBytes = totalRows * 500;
 
-    // Generate checksum for the simulated backup payload
+    // Generate checksum from backup metadata
     const checksumPayload = JSON.stringify({
       tenantId,
       type,
