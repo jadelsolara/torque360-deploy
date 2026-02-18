@@ -6,6 +6,8 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
@@ -20,16 +22,54 @@ export class EventsGateway
   @WebSocketServer()
   server: Server;
 
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
+
   afterInit() {
     this.logger.log('WebSocket gateway initialized');
   }
 
-  handleConnection(client: Socket) {
-    const tenantId = client.handshake.query.tenantId as string;
-    if (tenantId) {
+  async handleConnection(client: Socket) {
+    try {
+      const token =
+        (client.handshake.auth?.token as string) ||
+        (client.handshake.headers?.authorization?.replace('Bearer ', '') as string);
+
+      if (!token) {
+        this.logger.warn(`Client ${client.id} rejected: no token`);
+        client.emit('error', { message: 'Authentication required' });
+        client.disconnect(true);
+        return;
+      }
+
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.getOrThrow<string>('JWT_SECRET'),
+      });
+
+      const tenantId = payload.tenantId as string;
+      if (!tenantId) {
+        this.logger.warn(`Client ${client.id} rejected: no tenantId in token`);
+        client.emit('error', { message: 'Invalid token: missing tenantId' });
+        client.disconnect(true);
+        return;
+      }
+
+      // Store user info on socket for later use
+      client.data.userId = payload.sub;
+      client.data.tenantId = tenantId;
+      client.data.role = payload.role;
+
       client.join(`tenant:${tenantId}`);
+      this.logger.debug(
+        `Client connected: ${client.id} (user: ${payload.sub}, tenant: ${tenantId})`,
+      );
+    } catch {
+      this.logger.warn(`Client ${client.id} rejected: invalid token`);
+      client.emit('error', { message: 'Authentication failed' });
+      client.disconnect(true);
     }
-    this.logger.debug(`Client connected: ${client.id} (tenant: ${tenantId || 'none'})`);
   }
 
   handleDisconnect(client: Socket) {

@@ -1,1 +1,1 @@
-export { AppLogger } from './app.logger';
+export { PinoLoggerModule } from './app.logger';

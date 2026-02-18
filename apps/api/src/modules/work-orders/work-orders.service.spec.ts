@@ -44,23 +44,29 @@ describe('WorkOrdersService', () => {
   // ═══════════════════════════════════════════════════════════════════════════
 
   describe('create', () => {
-    it('should create a work order with status pending', async () => {
+    it('should create a work order with status pending and per-tenant sequence', async () => {
       const dto = {
         vehicleId: 'vehicle-1',
         clientId: 'client-1',
         description: 'Oil change',
         laborCost: 30000,
       };
-      const expected = createWorkOrder({ ...dto, tenantId, status: 'pending' });
+      dataSource.query.mockResolvedValue([{ next_tenant_sequence: 42 }]);
+      const expected = createWorkOrder({ ...dto, tenantId, status: 'pending', orderNumber: 42 });
       woRepo.create.mockReturnValue(expected);
       woRepo.save.mockResolvedValue(expected);
 
       const result = await service.create(tenantId, dto as any);
 
+      expect(dataSource.query).toHaveBeenCalledWith(
+        `SELECT next_tenant_sequence($1, 'order_number')`,
+        [tenantId],
+      );
       expect(woRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
           tenantId,
           vehicleId: dto.vehicleId,
+          orderNumber: 42,
           status: 'pending',
         }),
       );
@@ -69,6 +75,7 @@ describe('WorkOrdersService', () => {
 
     it('should default type to repair and priority to normal', async () => {
       const dto = { vehicleId: 'v1', clientId: 'c1', description: 'Test' };
+      dataSource.query.mockResolvedValue([{ next_tenant_sequence: 1 }]);
       woRepo.create.mockImplementation((data: any) => data);
       woRepo.save.mockImplementation((entity: any) => Promise.resolve(entity));
 

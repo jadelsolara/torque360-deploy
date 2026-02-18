@@ -9,6 +9,14 @@ const config: Config = {
   },
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.dto.ts', '!src/**/*.entity.ts', '!src/main.ts'],
   coverageDirectory: './coverage',
+  coverageThreshold: {
+    global: {
+      branches: 40,
+      functions: 40,
+      lines: 40,
+      statements: 40,
+    },
+  },
   testEnvironment: 'node',
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',

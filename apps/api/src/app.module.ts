@@ -4,6 +4,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { validate } from './common/config';
+import { PinoLoggerModule } from './common/logger';
 import { RedisModule } from './common/redis';
 import { SearchModule } from './common/search';
 import { QueueModule } from './common/queue';
@@ -73,6 +74,7 @@ import { BillingModule } from './modules/billing/billing.module';
     }),
 
     // Infrastructure (global)
+    PinoLoggerModule,
     RedisModule,
     SearchModule,
     QueueModule,

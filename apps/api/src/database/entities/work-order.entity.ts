@@ -10,7 +10,7 @@ export class WorkOrder {
   @Column({ name: 'tenant_id' })
   tenantId: string;
 
-  @Column({ name: 'order_number', generated: 'increment' })
+  @Column({ name: 'order_number' })
   orderNumber: number;
 
   @Column({ name: 'vehicle_id' })

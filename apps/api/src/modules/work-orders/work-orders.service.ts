@@ -97,8 +97,15 @@ export class WorkOrdersService {
     tenantId: string,
     dto: CreateWorkOrderDto,
   ): Promise<WorkOrder> {
+    // Get next per-tenant order number (atomic via DB function)
+    const [{ next_tenant_sequence: orderNumber }] = await this.dataSource.query(
+      `SELECT next_tenant_sequence($1, 'order_number')`,
+      [tenantId],
+    );
+
     const workOrder = this.workOrderRepo.create({
       tenantId,
+      orderNumber: Number(orderNumber),
       vehicleId: dto.vehicleId,
       clientId: dto.clientId,
       assignedTo: dto.assignedTo,
