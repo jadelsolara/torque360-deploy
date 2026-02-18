@@ -2,6 +2,11 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, LessThan, MoreThanOrEqual } from 'typeorm';
 import { createHash } from 'crypto';
+import { spawn } from 'child_process';
+import { createWriteStream, createReadStream } from 'fs';
+import { mkdir, stat } from 'fs/promises';
+import { createGzip } from 'zlib';
+import { dirname } from 'path';
 import {
   BackupRecord,
   BackupType,
@@ -101,27 +106,14 @@ export class BackupService {
     }
 
     const totalRows = Object.values(rowCounts).reduce((sum, c) => sum + c, 0);
-    // Estimate ~500 bytes per row average for compressed SQL dump
-    const sizeBytes = totalRows * 500;
 
-    // Generate checksum from backup metadata
-    const checksumPayload = JSON.stringify({
-      tenantId,
-      type,
-      tablesIncluded,
-      rowCounts,
-      timestamp: now.toISOString(),
-    });
-    const checksumSha256 = createHash('sha256').update(checksumPayload).digest('hex');
-
-    const localPath =
-      target !== StorageTarget.R2_CLOUD
-        ? `/backups/${tenantId || 'system'}/${now.toISOString().replace(/[:.]/g, '-')}_${type.toLowerCase()}.sql.gz`
-        : undefined;
+    // Always generate a local path (cloud targets dump locally first, then upload)
+    const timestamp = now.toISOString().replace(/[:.]/g, '-');
+    const localPath = `/backups/${tenantId || 'system'}/${timestamp}_${type.toLowerCase()}.sql.gz`;
 
     const cloudUrl =
       target !== StorageTarget.LOCAL
-        ? `https://r2.torque360.cl/backups/${tenantId || 'system'}/${now.toISOString().replace(/[:.]/g, '-')}_${type.toLowerCase()}.sql.gz`
+        ? `https://r2.torque360.cl/backups/${tenantId || 'system'}/${timestamp}_${type.toLowerCase()}.sql.gz`
         : undefined;
 
     const cloudBucket = target !== StorageTarget.LOCAL ? 'torque360-backups' : undefined;
@@ -134,10 +126,9 @@ export class BackupService {
       localPath,
       cloudUrl,
       cloudBucket,
-      sizeBytes,
+      sizeBytes: 0,
       tablesIncluded,
       rowCounts,
-      checksumSha256,
       startedAt: now,
       expiresAt,
       triggeredBy,
@@ -145,14 +136,28 @@ export class BackupService {
 
     const saved = await this.backupRepo.save(backup) as BackupRecord;
 
-    // Simulate completion (in production this would be async after actual dump)
-    saved.status = BackupStatus.COMPLETED;
-    saved.completedAt = new Date();
-    await (this.backupRepo.save(saved) as Promise<BackupRecord>);
+    // Execute real pg_dump, compress with gzip, calculate checksum
+    try {
+      const dumpResult = await this.executePgDump(localPath);
+      saved.sizeBytes = dumpResult.sizeBytes;
+      saved.checksumSha256 = dumpResult.checksumSha256;
+      saved.status = BackupStatus.COMPLETED;
+      saved.completedAt = new Date();
+      await (this.backupRepo.save(saved) as Promise<BackupRecord>);
 
-    this.logger.log(
-      `Backup created: ${saved.id} | tenant=${tenantId} type=${type} target=${target} size=${sizeBytes} bytes`,
-    );
+      this.logger.log(
+        `Backup completed: ${saved.id} | tenant=${tenantId} type=${type} target=${target} size=${dumpResult.sizeBytes} bytes`,
+      );
+    } catch (err) {
+      saved.status = BackupStatus.FAILED;
+      saved.errorMessage = err instanceof Error ? err.message : String(err);
+      saved.completedAt = new Date();
+      await (this.backupRepo.save(saved) as Promise<BackupRecord>);
+
+      this.logger.error(
+        `Backup FAILED: ${saved.id} | tenant=${tenantId} error=${saved.errorMessage}`,
+      );
+    }
 
     return saved;
   }
@@ -595,6 +600,84 @@ export class BackupService {
   // ═══════════════════════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════════════════════
+
+  /**
+   * Runs pg_dump piped through gzip to produce a compressed SQL dump.
+   * Returns the real file size and SHA-256 checksum of the gzipped output.
+   */
+  private async executePgDump(
+    localPath: string,
+  ): Promise<{ sizeBytes: number; checksumSha256: string }> {
+    const opts = this.dataSource.options as Record<string, any>;
+    await mkdir(dirname(localPath), { recursive: true });
+
+    return new Promise((resolve, reject) => {
+      let rejected = false;
+      const fail = (err: Error) => {
+        if (!rejected) {
+          rejected = true;
+          reject(err);
+        }
+      };
+
+      const pgDump = spawn(
+        'pg_dump',
+        [
+          '-h', opts.host || 'localhost',
+          '-p', String(opts.port || 5432),
+          '-U', opts.username,
+          '-d', opts.database,
+          '--no-owner',
+          '--no-privileges',
+        ],
+        {
+          env: { ...process.env, PGPASSWORD: opts.password || '' },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      );
+
+      let stderr = '';
+      pgDump.stderr.on('data', (data: Buffer) => {
+        stderr += data.toString();
+      });
+
+      const gzip = createGzip();
+      const fileStream = createWriteStream(localPath);
+      pgDump.stdout.pipe(gzip).pipe(fileStream);
+
+      pgDump.on('error', (err) =>
+        fail(new Error(`pg_dump not found or failed to start: ${err.message}`)),
+      );
+
+      pgDump.on('close', (code) => {
+        if (code !== 0) {
+          fail(new Error(`pg_dump exited with code ${code}: ${stderr.slice(0, 500)}`));
+        }
+      });
+
+      gzip.on('error', (err) => fail(err));
+      fileStream.on('error', (err) => fail(err));
+
+      fileStream.on('finish', async () => {
+        if (rejected) return;
+        try {
+          const fileStats = await stat(localPath);
+          const hash = createHash('sha256');
+          const rs = createReadStream(localPath);
+          rs.on('data', (chunk: Buffer) => hash.update(chunk));
+          rs.on('end', () =>
+            resolve({
+              sizeBytes: Number(fileStats.size),
+              checksumSha256: hash.digest('hex'),
+            }),
+          );
+          rs.on('error', (err) => fail(err));
+        } catch (err) {
+          fail(err instanceof Error ? err : new Error(String(err)));
+        }
+      });
+    });
+  }
 
   private getConfig(tenantId: string | null): typeof DEFAULT_BACKUP_CONFIG {
     if (!tenantId) return { ...DEFAULT_BACKUP_CONFIG };
