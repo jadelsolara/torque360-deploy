@@ -20,7 +20,7 @@ export class HealthController {
       dbLatencyMs = Date.now() - start;
       dbOk = true;
     } catch {
-      dbOk = false;
+      // dbOk remains false
     }
 
     const memoryUsage = process.memoryUsage();

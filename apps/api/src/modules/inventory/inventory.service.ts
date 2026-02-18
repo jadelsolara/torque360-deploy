@@ -122,7 +122,7 @@ export class InventoryService {
       case 'add':
         item.stockQuantity = Number(item.stockQuantity) + dto.quantity;
         break;
-      case 'subtract':
+      case 'subtract': {
         const newQty = Number(item.stockQuantity) - dto.quantity;
         if (newQty < 0) {
           throw new BadRequestException(
@@ -131,6 +131,7 @@ export class InventoryService {
         }
         item.stockQuantity = newQty;
         break;
+      }
       case 'set':
         if (dto.quantity < 0) {
           throw new BadRequestException('Stock quantity cannot be negative');

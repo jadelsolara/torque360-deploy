@@ -420,8 +420,14 @@ export class Company360Service {
       .andWhere('wo.completed_at >= :startOfMonth', { startOfMonth })
       .getCount();
 
-    // Overdue orders - due_date column not in work_orders table, always 0
-    const ordenesVencidas = 0;
+    // Overdue orders - orders with due_date in the past that are not completed
+    const ordenesVencidas = await this.woRepo
+      .createQueryBuilder('wo')
+      .where('wo.tenant_id = :tenantId', { tenantId })
+      .andWhere('wo.status IN (:...statuses)', { statuses: ['pending', 'in_progress'] })
+      .andWhere('wo.due_date IS NOT NULL')
+      .andWhere('wo.due_date < NOW()')
+      .getCount();
 
 
 
@@ -547,7 +553,7 @@ export class Company360Service {
       .getRawMany();
     const idsConMovimiento = (itemsConMovimiento || []).map((r) => r.item_id);
 
-    let itemsSinMovimiento30d = 0;
+    let itemsSinMovimiento30d: number;
     if (idsConMovimiento.length > 0) {
       itemsSinMovimiento30d = await this.invItemRepo
         .createQueryBuilder('i')
@@ -852,8 +858,19 @@ export class Company360Service {
       .andWhere('sp.created_at >= :startOfYear', { startOfYear })
       .getRawOne();
 
-    // Workshop efficiency: due_date column not in work_orders table, cannot calculate
-    const eficienciaRaw = { total: 0, ontime: 0 };
+    // Workshop efficiency: orders with due_date completed on time vs total with due_date
+    const eficienciaRaw = await this.woRepo
+      .createQueryBuilder('wo')
+      .select('COUNT(*)', 'total')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE wo.completed_at <= wo.due_date)',
+        'ontime',
+      )
+      .where('wo.tenant_id = :tenantId', { tenantId })
+      .andWhere('wo.status = :status', { status: 'completed' })
+      .andWhere('wo.due_date IS NOT NULL')
+      .andWhere('wo.completed_at >= :startOfYear', { startOfYear })
+      .getRawOne();
     const efTotal = safeInt(eficienciaRaw?.total);
     const efOntime = safeInt(eficienciaRaw?.ontime);
     const eficienciaTaller = efTotal > 0
@@ -1167,8 +1184,20 @@ export class Company360Service {
 
     const totalQuotes = safeInt(quotesRaw?.total);
     const convertedQuotes = safeInt(quotesRaw?.convertidas);
-    // Efficiency: due_date column not in work_orders table
-    const efRaw = { total: 0, ontime: 0 };
+    // Efficiency: orders with due_date completed on time in range
+    const efRaw = await this.woRepo
+      .createQueryBuilder('wo')
+      .select('COUNT(*)', 'total')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE wo.completed_at <= wo.due_date)',
+        'ontime',
+      )
+      .where('wo.tenant_id = :tenantId', { tenantId })
+      .andWhere('wo.status = :status', { status: 'completed' })
+      .andWhere('wo.due_date IS NOT NULL')
+      .andWhere('wo.completed_at >= :dateFrom', { dateFrom })
+      .andWhere('wo.completed_at <= :dateTo', { dateTo })
+      .getRawOne();
 
     const efTotal = safeInt(efRaw?.total);
     const efOntime = safeInt(efRaw?.ontime);

@@ -75,7 +75,7 @@ export class ExchangeRateService {
     const rateDate = date || new Date().toISOString().split('T')[0];
 
     // Check if a rate already exists for this currency+date
-    let existing = await this.rateRepo.findOne({
+    const existing = await this.rateRepo.findOne({
       where: { currency, date: rateDate },
     });
 
