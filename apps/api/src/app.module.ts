@@ -42,6 +42,7 @@ import { HealthModule } from './modules/health/health.module';
 import { Company360Module } from './modules/company360/company360.module';
 import { NetworkModule } from './modules/network/network.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { BugsModule } from './modules/bugs/bugs.module';
 
 @Module({
   imports: [
@@ -114,6 +115,7 @@ import { BillingModule } from './modules/billing/billing.module';
     HealthModule,
     NetworkModule,
     BillingModule,
+    BugsModule,
   ],
   providers: [
     {

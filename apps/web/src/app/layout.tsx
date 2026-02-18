@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
+import BugReporterBridge from '@/components/BugReporterBridge';
 import './globals.css';
 
 const inter = Inter({
@@ -28,6 +29,7 @@ export default async function RootLayout({
         {children}
         <Script id="genie-bug-config" strategy="beforeInteractive" nonce={nonce}>{`window.GENIE_BUG_CONFIG={projectName:'TORQUE 360',storageKey:'torque_bugs',lang:'es',theme:'auto'};`}</Script>
         <Script src="/bug_reporter.js" strategy="afterInteractive" nonce={nonce} />
+        <BugReporterBridge />
       </body>
     </html>
   );
