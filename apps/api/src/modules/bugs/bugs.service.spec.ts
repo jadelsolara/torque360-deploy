@@ -3,10 +3,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { BugsService } from './bugs.service';
 import { BugReport } from '../../database/entities/bug-report.entity';
-import {
-  createMockRepository,
-  createMockQueryBuilder,
-} from '../../../test/helpers/test.utils';
+import { createMockRepository, createMockQueryBuilder } from '../../../test/helpers/test.utils';
 
 describe('BugsService', () => {
   let service: BugsService;
@@ -18,10 +15,7 @@ describe('BugsService', () => {
     bugRepo = createMockRepository();
 
     const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        BugsService,
-        { provide: getRepositoryToken(BugReport), useValue: bugRepo },
-      ],
+      providers: [BugsService, { provide: getRepositoryToken(BugReport), useValue: bugRepo }],
     }).compile();
 
     service = module.get<BugsService>(BugsService);
@@ -67,9 +61,7 @@ describe('BugsService', () => {
     it('should throw ConflictException on duplicate hash', async () => {
       bugRepo.findOne.mockResolvedValue({ id: 'b-existing' });
 
-      await expect(service.create(tenantId, dto as any)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(service.create(tenantId, dto as any)).rejects.toThrow(ConflictException);
     });
 
     it('should allow creation without userId', async () => {
@@ -80,9 +72,7 @@ describe('BugsService', () => {
 
       const result = await service.create(tenantId, dto as any);
 
-      expect(bugRepo.create).toHaveBeenCalledWith(
-        expect.objectContaining({ userId: null }),
-      );
+      expect(bugRepo.create).toHaveBeenCalledWith(expect.objectContaining({ userId: null }));
       expect(result.id).toBe('b2');
     });
   });
@@ -104,9 +94,7 @@ describe('BugsService', () => {
     it('should throw NotFoundException when not found', async () => {
       bugRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.findById(tenantId, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.findById(tenantId, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -116,7 +104,14 @@ describe('BugsService', () => {
 
   describe('updateStatus', () => {
     it('should update status and set notes', async () => {
-      const bug = { id: 'b1', tenantId, status: 'new', notes: null, resolvedBy: null, resolvedAt: null };
+      const bug = {
+        id: 'b1',
+        tenantId,
+        status: 'new',
+        notes: null,
+        resolvedBy: null,
+        resolvedAt: null,
+      };
       bugRepo.findOne.mockResolvedValue(bug);
       bugRepo.save.mockImplementation((entity: any) => Promise.resolve(entity));
 
@@ -130,12 +125,20 @@ describe('BugsService', () => {
     });
 
     it('should set resolvedBy and resolvedAt when fixed', async () => {
-      const bug = { id: 'b1', tenantId, status: 'in_progress', notes: null, resolvedBy: null, resolvedAt: null };
+      const bug = {
+        id: 'b1',
+        tenantId,
+        status: 'in_progress',
+        notes: null,
+        resolvedBy: null,
+        resolvedAt: null,
+      };
       bugRepo.findOne.mockResolvedValue(bug);
       bugRepo.save.mockImplementation((entity: any) => Promise.resolve(entity));
 
       const result = await service.updateStatus(
-        tenantId, 'b1',
+        tenantId,
+        'b1',
         { status: 'fixed' } as any,
         'admin-1',
       );
@@ -146,14 +149,18 @@ describe('BugsService', () => {
     });
 
     it('should set resolvedAt when dismissed', async () => {
-      const bug = { id: 'b1', tenantId, status: 'new', notes: null, resolvedBy: null, resolvedAt: null };
+      const bug = {
+        id: 'b1',
+        tenantId,
+        status: 'new',
+        notes: null,
+        resolvedBy: null,
+        resolvedAt: null,
+      };
       bugRepo.findOne.mockResolvedValue(bug);
       bugRepo.save.mockImplementation((entity: any) => Promise.resolve(entity));
 
-      const result = await service.updateStatus(
-        tenantId, 'b1',
-        { status: 'dismissed' } as any,
-      );
+      const result = await service.updateStatus(tenantId, 'b1', { status: 'dismissed' } as any);
 
       expect(result.status).toBe('dismissed');
       expect(result.resolvedAt).toBeInstanceOf(Date);
@@ -178,9 +185,7 @@ describe('BugsService', () => {
     it('should throw NotFoundException if bug does not exist', async () => {
       bugRepo.findOne.mockResolvedValue(null);
 
-      await expect(service.remove(tenantId, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(service.remove(tenantId, 'nonexistent')).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -227,10 +232,9 @@ describe('BugsService', () => {
 
       await service.findAll(tenantId, { search: 'button' });
 
-      expect(qb.andWhere).toHaveBeenCalledWith(
-        expect.stringContaining('ILIKE'),
-        { search: '%button%' },
-      );
+      expect(qb.andWhere).toHaveBeenCalledWith(expect.stringContaining('ILIKE'), {
+        search: '%button%',
+      });
     });
   });
 

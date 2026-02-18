@@ -1,11 +1,4 @@
-import {
-  IsString,
-  IsOptional,
-  IsIn,
-  IsArray,
-  Length,
-  IsObject,
-} from 'class-validator';
+import { IsString, IsOptional, IsIn, IsArray, Length, IsObject } from 'class-validator';
 
 export class CreateBugReportDto {
   @IsString()

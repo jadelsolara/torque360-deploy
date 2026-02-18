@@ -55,10 +55,7 @@ export class BugsController {
 
   @Get(':id')
   @Roles('MANAGER')
-  findById(
-    @Tenant() tenantId: string,
-    @Param('id') id: string,
-  ) {
+  findById(@Tenant() tenantId: string, @Param('id') id: string) {
     return this.bugsService.findById(tenantId, id);
   }
 
@@ -75,10 +72,7 @@ export class BugsController {
 
   @Delete(':id')
   @Roles('ADMIN')
-  remove(
-    @Tenant() tenantId: string,
-    @Param('id') id: string,
-  ) {
+  remove(@Tenant() tenantId: string, @Param('id') id: string) {
     return this.bugsService.remove(tenantId, id);
   }
 }

@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  ConflictException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { createHash } from 'crypto';
@@ -11,20 +7,14 @@ import { CreateBugReportDto, UpdateBugStatusDto } from './bugs.dto';
 
 @Injectable()
 export class BugsService {
-  constructor(
-    @InjectRepository(BugReport) private bugRepo: Repository<BugReport>,
-  ) {}
+  constructor(@InjectRepository(BugReport) private bugRepo: Repository<BugReport>) {}
 
   private buildHash(tenantId: string, dto: CreateBugReportDto): string {
     const raw = `${tenantId}:${dto.section}:${dto.severity}:${dto.description}`;
     return createHash('sha256').update(raw).digest('hex');
   }
 
-  async create(
-    tenantId: string,
-    dto: CreateBugReportDto,
-    userId?: string,
-  ): Promise<BugReport> {
+  async create(tenantId: string, dto: CreateBugReportDto, userId?: string): Promise<BugReport> {
     const contentHash = this.buildHash(tenantId, dto);
 
     const existing = await this.bugRepo.findOne({
@@ -78,10 +68,9 @@ export class BugsService {
       qb.andWhere('b.section = :section', { section: filters.section });
     }
     if (filters?.search) {
-      qb.andWhere(
-        '(b.description ILIKE :search OR b.section ILIKE :search)',
-        { search: `%${filters.search}%` },
-      );
+      qb.andWhere('(b.description ILIKE :search OR b.section ILIKE :search)', {
+        search: `%${filters.search}%`,
+      });
     }
 
     return qb.getMany();
@@ -116,9 +105,11 @@ export class BugsService {
     await this.bugRepo.remove(bug);
   }
 
-  async getStats(
-    tenantId: string,
-  ): Promise<{ total: number; byStatus: Record<string, number>; bySeverity: Record<string, number> }> {
+  async getStats(tenantId: string): Promise<{
+    total: number;
+    byStatus: Record<string, number>;
+    bySeverity: Record<string, number>;
+  }> {
     const bugs = await this.bugRepo.find({ where: { tenantId } });
 
     const byStatus: Record<string, number> = {};

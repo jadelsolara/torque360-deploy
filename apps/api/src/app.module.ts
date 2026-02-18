@@ -47,19 +47,23 @@ import { BugsModule } from './modules/bugs/bugs.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate }),
-    ThrottlerModule.forRoot([{
-      name: 'short',
-      ttl: 1000,
-      limit: 3,
-    }, {
-      name: 'medium',
-      ttl: 10000,
-      limit: 20,
-    }, {
-      name: 'long',
-      ttl: 60000,
-      limit: 100,
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        name: 'short',
+        ttl: 1000,
+        limit: 3,
+      },
+      {
+        name: 'medium',
+        ttl: 10000,
+        limit: 20,
+      },
+      {
+        name: 'long',
+        ttl: 60000,
+        limit: 100,
+      },
+    ]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

@@ -58,7 +58,9 @@ async function postBug(bug: BugPayload): Promise<boolean> {
  */
 export default function BugReporterBridge() {
   useEffect(() => {
-    const cfg = (window as Record<string, unknown>).GENIE_BUG_CONFIG as Record<string, unknown> | undefined;
+    const cfg = (window as Record<string, unknown>).GENIE_BUG_CONFIG as
+      | Record<string, unknown>
+      | undefined;
     if (!cfg) return;
 
     cfg.onSend = async (_text: string, bugOrBugs: BugPayload | BugPayload[]) => {

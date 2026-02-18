@@ -15,11 +15,7 @@ export const metadata: Metadata = {
   description: 'Sistema ERP integral para talleres y servicios automotrices',
 };
 
-export default async function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') ?? '';
 
@@ -27,7 +23,11 @@ export default async function RootLayout({
     <html lang="es">
       <body className={`${inter.variable} font-sans antialiased`}>
         {children}
-        <Script id="genie-bug-config" strategy="beforeInteractive" nonce={nonce}>{`window.GENIE_BUG_CONFIG={projectName:'TORQUE 360',storageKey:'torque_bugs',lang:'es',theme:'auto'};`}</Script>
+        <Script
+          id="genie-bug-config"
+          strategy="beforeInteractive"
+          nonce={nonce}
+        >{`window.GENIE_BUG_CONFIG={projectName:'TORQUE 360',storageKey:'torque_bugs',lang:'es',theme:'auto'};`}</Script>
         <Script src="/bug_reporter.js" strategy="afterInteractive" nonce={nonce} />
         <BugReporterBridge />
       </body>
