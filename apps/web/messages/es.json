@@ -1,0 +1,72 @@
+{
+  "common": {
+    "appName": "TORQUE 360",
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "create": "Crear",
+    "search": "Buscar",
+    "filter": "Filtrar",
+    "export": "Exportar",
+    "back": "Volver",
+    "confirm": "Confirmar",
+    "yes": "Sí",
+    "no": "No",
+    "actions": "Acciones",
+    "status": "Estado",
+    "noResults": "Sin resultados",
+    "error": "Error",
+    "success": "Operación exitosa"
+  },
+  "auth": {
+    "login": "Iniciar sesión",
+    "register": "Registrarse",
+    "logout": "Cerrar sesión",
+    "email": "Correo electrónico",
+    "password": "Contraseña",
+    "forgotPassword": "¿Olvidaste tu contraseña?",
+    "rememberMe": "Recordarme"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "workOrders": "Órdenes de trabajo",
+    "vehicles": "Vehículos",
+    "clients": "Clientes",
+    "inventory": "Inventario",
+    "quotations": "Cotizaciones",
+    "invoicing": "Facturación",
+    "suppliers": "Proveedores",
+    "warehouse": "Bodega",
+    "hr": "RRHH",
+    "reports": "Informes",
+    "settings": "Configuración"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalOrders": "Órdenes totales",
+    "activeOrders": "Órdenes activas",
+    "revenue": "Ingresos",
+    "pendingApprovals": "Aprobaciones pendientes"
+  },
+  "workOrders": {
+    "title": "Órdenes de trabajo",
+    "new": "Nueva orden",
+    "status": {
+      "draft": "Borrador",
+      "pending": "Pendiente",
+      "in_progress": "En progreso",
+      "completed": "Completada",
+      "invoiced": "Facturada",
+      "cancelled": "Cancelada"
+    }
+  },
+  "errors": {
+    "notFound": "Página no encontrada",
+    "notFoundDescription": "La página que buscas no existe.",
+    "serverError": "Error del servidor",
+    "serverErrorDescription": "Algo salió mal. Por favor intenta de nuevo.",
+    "goHome": "Ir al inicio"
+  }
+}

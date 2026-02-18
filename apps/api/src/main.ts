@@ -34,7 +34,7 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
-      transformOptions: { enableImplicitConversion: true },
+      transformOptions: { enableImplicitConversion: false },
     }),
   );
 
@@ -43,13 +43,10 @@ async function bootstrap() {
     .setTitle('TORQUE 360 API')
     .setDescription(
       'Cloud-native ERP for automotive workshops — ' +
-      'Work Orders, Inventory, Invoicing, HR, CRM, WMS, B2B Network',
+        'Work Orders, Inventory, Invoicing, HR, CRM, WMS, B2B Network',
     )
     .setVersion('0.1.0')
-    .addBearerAuth(
-      { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
-      'access-token',
-    )
+    .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'access-token')
     .addTag('auth', 'Authentication & authorization')
     .addTag('work-orders', 'Service orders lifecycle')
     .addTag('inventory', 'Parts & stock management')

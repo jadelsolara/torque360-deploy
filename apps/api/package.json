@@ -43,6 +43,8 @@
     "@nestjs/throttler": "^6.0.0",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.0.0",
+    "@sentry/nestjs": "^10.39.0",
+    "@sentry/node": "^10.39.0",
     "bcrypt": "^5.1.1",
     "bullmq": "^5.0.0",
     "class-transformer": "^0.5.1",

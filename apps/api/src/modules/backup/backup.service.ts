@@ -14,10 +14,7 @@ import {
   BackupStatus,
   BackupTrigger,
 } from '../../database/entities/backup-record.entity';
-import {
-  StorageMetric,
-  AlertLevel,
-} from '../../database/entities/storage-metric.entity';
+import { StorageMetric, AlertLevel } from '../../database/entities/storage-metric.entity';
 import { BackupFiltersDto, UpdateScheduleDto } from './backup.dto';
 
 const DEFAULT_BACKUP_CONFIG = {
@@ -75,16 +72,23 @@ export class BackupService {
 
     // Calculate expiration based on target
     const retentionDays =
-      target === StorageTarget.LOCAL
-        ? config.localRetentionDays
-        : config.cloudRetentionDays;
+      target === StorageTarget.LOCAL ? config.localRetentionDays : config.cloudRetentionDays;
     const expiresAt = new Date(now.getTime() + retentionDays * 24 * 60 * 60 * 1000);
 
     // Get real table list and row counts from the database
     const tablesIncluded = [
-      'clients', 'vehicles', 'work_orders', 'work_order_parts',
-      'inventory_items', 'stock_movements', 'invoices', 'invoice_items',
-      'quotations', 'suppliers', 'employees', 'payrolls',
+      'clients',
+      'vehicles',
+      'work_orders',
+      'work_order_parts',
+      'inventory_items',
+      'stock_movements',
+      'invoices',
+      'invoice_items',
+      'quotations',
+      'suppliers',
+      'employees',
+      'payrolls',
     ];
 
     const rowCounts: Record<string, number> = {};
@@ -95,9 +99,7 @@ export class BackupService {
               `SELECT COUNT(*) AS count FROM "${table}" WHERE tenant_id = $1`,
               [tenantId],
             )
-          : await this.dataSource.query(
-              `SELECT COUNT(*) AS count FROM "${table}"`,
-            );
+          : await this.dataSource.query(`SELECT COUNT(*) AS count FROM "${table}"`);
         rowCounts[table] = parseInt(result[0]?.count || '0', 10);
       } catch {
         // Table might not exist yet — skip
@@ -134,7 +136,7 @@ export class BackupService {
       triggeredBy,
     });
 
-    const saved = await this.backupRepo.save(backup) as BackupRecord;
+    const saved = (await this.backupRepo.save(backup)) as BackupRecord;
 
     // Execute real pg_dump, compress with gzip, calculate checksum
     try {
@@ -188,8 +190,8 @@ export class BackupService {
 
     qb.orderBy('b.createdAt', 'DESC');
 
-    const page = filters.page ? parseInt(filters.page, 10) : 1;
-    const limit = filters.limit ? Math.min(parseInt(filters.limit, 10), 100) : 20;
+    const page = filters.page ?? 1;
+    const limit = filters.limit ? Math.min(filters.limit, 100) : 20;
     const offset = (page - 1) * limit;
 
     qb.skip(offset).take(limit);
@@ -210,7 +212,10 @@ export class BackupService {
     return backup;
   }
 
-  async restoreBackup(tenantId: string, backupId: string): Promise<{ message: string; backupId: string }> {
+  async restoreBackup(
+    tenantId: string,
+    backupId: string,
+  ): Promise<{ message: string; backupId: string }> {
     const backup = await this.getBackupById(tenantId, backupId);
 
     if (backup.status !== BackupStatus.COMPLETED) {
@@ -253,10 +258,7 @@ export class BackupService {
     return this.getConfig(tenantId);
   }
 
-  updateBackupSchedule(
-    tenantId: string,
-    dto: UpdateScheduleDto,
-  ): typeof DEFAULT_BACKUP_CONFIG {
+  updateBackupSchedule(tenantId: string, dto: UpdateScheduleDto): typeof DEFAULT_BACKUP_CONFIG {
     const current = this.getConfig(tenantId);
 
     const updated = {
@@ -335,8 +337,14 @@ export class BackupService {
     let rowCountTotal = 0;
     try {
       const tables = [
-        'clients', 'vehicles', 'work_orders', 'inventory_items',
-        'invoices', 'quotations', 'suppliers', 'employees',
+        'clients',
+        'vehicles',
+        'work_orders',
+        'inventory_items',
+        'invoices',
+        'quotations',
+        'suppliers',
+        'employees',
       ];
       for (const table of tables) {
         try {
@@ -366,7 +374,7 @@ export class BackupService {
       alertLevel,
     });
 
-    const saved = await this.storageRepo.save(metric) as StorageMetric;
+    const saved = (await this.storageRepo.save(metric)) as StorageMetric;
 
     // Trigger auto-scale check after measurement
     await this.checkAutoScale(tenantId, saved);
@@ -378,10 +386,7 @@ export class BackupService {
     return saved;
   }
 
-  async getStorageMetrics(
-    tenantId: string,
-    days: number = 30,
-  ): Promise<StorageMetric[]> {
+  async getStorageMetrics(tenantId: string, days: number = 30): Promise<StorageMetric[]> {
     const since = new Date();
     since.setDate(since.getDate() - days);
 
@@ -437,10 +442,7 @@ export class BackupService {
       totalStorageUsed += parseInt(m.totalSizeBytes || '0', 10);
       totalQuotaAllocated += parseInt(m.quotaBytes || '0', 10);
       if (m.alertLevel === AlertLevel.WARNING) tenantsInWarning++;
-      if (
-        m.alertLevel === AlertLevel.CRITICAL ||
-        m.alertLevel === AlertLevel.EXCEEDED
-      ) {
+      if (m.alertLevel === AlertLevel.CRITICAL || m.alertLevel === AlertLevel.EXCEEDED) {
         tenantsInCritical++;
       }
     }
@@ -484,8 +486,7 @@ export class BackupService {
 
     if (!config.autoScaleEnabled) return;
 
-    const current =
-      metric || (await this.getCurrentStorage(tenantId));
+    const current = metric || (await this.getCurrentStorage(tenantId));
 
     if (!current) return;
 
@@ -527,9 +528,7 @@ export class BackupService {
     // WARNING: usage > 85% (or custom threshold) — scale-up 20%
     if (usage > config.autoScaleThreshold) {
       const previousQuota = config.defaultQuotaBytes;
-      const newQuota = Math.floor(
-        previousQuota * (1 + config.autoScaleIncrementPercent / 100),
-      );
+      const newQuota = Math.floor(previousQuota * (1 + config.autoScaleIncrementPercent / 100));
 
       await this.adjustQuota(tenantId, newQuota);
 
@@ -623,10 +622,14 @@ export class BackupService {
       const pgDump = spawn(
         'pg_dump',
         [
-          '-h', opts.host || 'localhost',
-          '-p', String(opts.port || 5432),
-          '-U', opts.username,
-          '-d', opts.database,
+          '-h',
+          opts.host || 'localhost',
+          '-p',
+          String(opts.port || 5432),
+          '-U',
+          opts.username,
+          '-d',
+          opts.database,
           '--no-owner',
           '--no-privileges',
         ],

@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { Inter } from 'next/font/google';
 import Script from 'next/script';
+import { NextIntlClientProvider } from 'next-intl';
+import { getLocale, getMessages } from 'next-intl/server';
 import BugReporterBridge from '@/components/BugReporterBridge';
 import './globals.css';
 
@@ -18,11 +20,21 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headersList = await headers();
   const nonce = headersList.get('x-nonce') ?? '';
+  const locale = await getLocale();
+  const messages = await getMessages();
 
   return (
-    <html lang="es">
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')}catch(e){}})()`,
+          }}
+        />
+      </head>
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <NextIntlClientProvider messages={messages}>{children}</NextIntlClientProvider>
         <Script
           id="genie-bug-config"
           strategy="beforeInteractive"

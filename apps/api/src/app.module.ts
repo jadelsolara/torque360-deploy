@@ -12,6 +12,7 @@ import { WebsocketModule } from './common/websocket';
 import { MailModule } from './common/mail';
 import { PdfModule } from './common/pdf';
 import { StorageModule } from './common/storage';
+import { SentryModule } from './common/sentry';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
@@ -87,6 +88,7 @@ import { BugsModule } from './modules/bugs/bugs.module';
     MailModule,
     PdfModule,
     StorageModule,
+    SentryModule,
 
     // Feature modules
     AuthModule,

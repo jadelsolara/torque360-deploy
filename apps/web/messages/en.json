@@ -1,0 +1,72 @@
+{
+  "common": {
+    "appName": "TORQUE 360",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "back": "Back",
+    "confirm": "Confirm",
+    "yes": "Yes",
+    "no": "No",
+    "actions": "Actions",
+    "status": "Status",
+    "noResults": "No results",
+    "error": "Error",
+    "success": "Operation successful"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up",
+    "logout": "Log out",
+    "email": "Email",
+    "password": "Password",
+    "forgotPassword": "Forgot your password?",
+    "rememberMe": "Remember me"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "workOrders": "Work Orders",
+    "vehicles": "Vehicles",
+    "clients": "Clients",
+    "inventory": "Inventory",
+    "quotations": "Quotations",
+    "invoicing": "Invoicing",
+    "suppliers": "Suppliers",
+    "warehouse": "Warehouse",
+    "hr": "HR",
+    "reports": "Reports",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalOrders": "Total orders",
+    "activeOrders": "Active orders",
+    "revenue": "Revenue",
+    "pendingApprovals": "Pending approvals"
+  },
+  "workOrders": {
+    "title": "Work Orders",
+    "new": "New order",
+    "status": {
+      "draft": "Draft",
+      "pending": "Pending",
+      "in_progress": "In progress",
+      "completed": "Completed",
+      "invoiced": "Invoiced",
+      "cancelled": "Cancelled"
+    }
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "notFoundDescription": "The page you're looking for doesn't exist.",
+    "serverError": "Server error",
+    "serverErrorDescription": "Something went wrong. Please try again.",
+    "goHome": "Go home"
+  }
+}

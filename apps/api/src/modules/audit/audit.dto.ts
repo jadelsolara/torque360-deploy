@@ -1,4 +1,5 @@
-import { IsString, IsOptional, IsObject, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsObject, IsIn, IsNumber, Min } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class CreateAuditLogDto {
   @IsString()
@@ -45,6 +46,8 @@ export class ListAuditLogsQueryDto {
   dateTo?: string;
 
   @IsOptional()
-  @IsString()
-  limit?: string;
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  limit?: number;
 }

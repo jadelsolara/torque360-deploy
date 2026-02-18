@@ -55,10 +55,7 @@ export class AuditService {
     return this.auditLogRepo.save(log) as Promise<AuditLog>;
   }
 
-  async findAll(
-    tenantId: string,
-    query: ListAuditLogsQueryDto,
-  ): Promise<AuditLog[]> {
+  async findAll(tenantId: string, query: ListAuditLogsQueryDto): Promise<AuditLog[]> {
     const qb = this.auditLogRepo
       .createQueryBuilder('log')
       .where('log.tenantId = :tenantId', { tenantId });
@@ -97,7 +94,7 @@ export class AuditService {
 
     qb.orderBy('log.createdAt', 'DESC');
 
-    const limit = query.limit ? parseInt(query.limit, 10) : 100;
+    const limit = query.limit ?? 100;
     qb.take(Math.min(limit, 500));
 
     return qb.getMany();

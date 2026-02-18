@@ -1,5 +1,10 @@
 import { IsString, IsOptional, IsEnum, IsNumber, IsBoolean, Min, Max } from 'class-validator';
-import { BackupType, StorageTarget, BackupStatus } from '../../database/entities/backup-record.entity';
+import { Type } from 'class-transformer';
+import {
+  BackupType,
+  StorageTarget,
+  BackupStatus,
+} from '../../database/entities/backup-record.entity';
 
 export class CreateBackupDto {
   @IsEnum(BackupType)
@@ -27,12 +32,16 @@ export class BackupFiltersDto {
   dateTo?: string;
 
   @IsOptional()
-  @IsString()
-  page?: string;
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
 
   @IsOptional()
-  @IsString()
-  limit?: string;
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  limit?: number;
 }
 
 export class UpdateScheduleDto {
