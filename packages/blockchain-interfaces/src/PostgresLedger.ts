@@ -26,22 +26,41 @@ export class PostgresLedger implements ILedger {
   }
 
   /**
+   * Derive a stable int64 lock key from entityType + entityId for pg_advisory_xact_lock.
+   */
+  private lockKey(entityType: string, entityId: string): number {
+    const hash = createHash('sha256').update(`${entityType}:${entityId}`).digest();
+    // Read first 6 bytes as an integer (fits in JS safe integer range)
+    return hash.readUIntBE(0, 6);
+  }
+
+  /**
    * Append a new entry to the ledger.
-   * Automatically computes the hash based on data + prevHash.
+   * Uses pg_advisory_xact_lock to serialize writes per entity and prevent
+   * concurrent appends from reading the same prevHash.
    */
   async append(
     entry: Omit<LedgerEntry, 'id' | 'hash' | 'timestamp'>,
   ): Promise<LedgerEntry> {
+    const key = this.lockKey(entry.entityType, entry.entityId);
+
+    // Run inside a transaction with an advisory lock to serialize chain appends
+    const sql = `
+      BEGIN;
+      SELECT pg_advisory_xact_lock($1);
+
+      INSERT INTO audit_logs (tenant_id, entity_type, entity_id, action, data, prev_hash, hash, created_at)
+      VALUES ($2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING id, tenant_id, entity_type, entity_id, action, data, prev_hash, hash, created_at;
+
+      COMMIT;
+    `;
+
     const hash = this.computeHash(entry.data, entry.prevHash);
     const now = new Date();
 
-    const sql = `
-      INSERT INTO audit_logs (tenant_id, entity_type, entity_id, action, data, prev_hash, hash, created_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING id, tenant_id, entity_type, entity_id, action, data, prev_hash, hash, created_at
-    `;
-
     const params = [
+      key,
       entry.tenantId,
       entry.entityType,
       entry.entityId,
@@ -53,7 +72,9 @@ export class PostgresLedger implements ILedger {
     ];
 
     const result = await this.dataSource.query(sql, params);
-    const row = result.rows[0];
+    // The RETURNING result is in the INSERT statement result set
+    const rows = result.rows ?? result;
+    const row = Array.isArray(rows) ? rows[0] : rows;
 
     return {
       id: row.id as string,
