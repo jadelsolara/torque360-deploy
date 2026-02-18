@@ -1,6 +1,15 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { validate } from './common/config';
+import { RedisModule } from './common/redis';
+import { SearchModule } from './common/search';
+import { QueueModule } from './common/queue';
+import { WebsocketModule } from './common/websocket';
+import { MailModule } from './common/mail';
+import { PdfModule } from './common/pdf';
+import { StorageModule } from './common/storage';
 import { AuthModule } from './modules/auth/auth.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { UsersModule } from './modules/users/users.module';
@@ -29,23 +38,48 @@ import { ReportsModule } from './modules/reports/reports.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { HealthModule } from './modules/health/health.module';
 import { Company360Module } from './modules/company360/company360.module';
+import { NetworkModule } from './modules/network/network.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate }),
+    ThrottlerModule.forRoot([{
+      name: 'short',
+      ttl: 1000,
+      limit: 3,
+    }, {
+      name: 'medium',
+      ttl: 10000,
+      limit: 20,
+    }, {
+      name: 'long',
+      ttl: 60000,
+      limit: 100,
+    }]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         type: 'postgres',
         host: config.get('DATABASE_HOST', 'localhost'),
         port: config.get<number>('DATABASE_PORT', 5432),
-        username: config.get('DATABASE_USER', 'torque'),
-        password: config.get('DATABASE_PASSWORD', 'torque360'),
-        database: config.get('DATABASE_NAME', 'torque360'),
+        username: config.getOrThrow('DATABASE_USER'),
+        password: config.getOrThrow('DATABASE_PASSWORD'),
+        database: config.getOrThrow('DATABASE_NAME'),
         autoLoadEntities: true,
         synchronize: false,
       }),
     }),
+
+    // Infrastructure (global)
+    RedisModule,
+    SearchModule,
+    QueueModule,
+    WebsocketModule,
+    MailModule,
+    PdfModule,
+    StorageModule,
+
+    // Feature modules
     AuthModule,
     TenantsModule,
     UsersModule,
@@ -74,6 +108,7 @@ import { Company360Module } from './modules/company360/company360.module';
     ReportsModule,
     BackupModule,
     HealthModule,
+    NetworkModule,
   ],
 })
 export class AppModule {}

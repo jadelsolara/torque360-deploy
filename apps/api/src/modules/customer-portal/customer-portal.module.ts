@@ -33,7 +33,7 @@ import { Invoice } from '../../database/entities/invoice.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get('CUSTOMER_PORTAL_JWT_SECRET', 'customer-portal-secret-change-me'),
+        secret: config.getOrThrow('CUSTOMER_PORTAL_JWT_SECRET'),
         signOptions: {
           expiresIn: '24h',
         },

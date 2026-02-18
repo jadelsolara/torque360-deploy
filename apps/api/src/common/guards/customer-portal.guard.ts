@@ -23,10 +23,7 @@ export class CustomerPortalGuard implements CanActivate {
     }
 
     try {
-      const secret = this.configService.get(
-        'CUSTOMER_PORTAL_JWT_SECRET',
-        'customer-portal-secret-change-me',
-      );
+      const secret = this.configService.getOrThrow('CUSTOMER_PORTAL_JWT_SECRET');
 
       const payload = await this.jwtService.verifyAsync(token, { secret });
 
