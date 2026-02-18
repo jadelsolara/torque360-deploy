@@ -4,7 +4,7 @@
 # ============================================
 
 # --- Stage 1: Dependencies ---
-FROM node:22-alpine AS deps
+FROM node:25-alpine AS deps
 
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
@@ -23,7 +23,7 @@ COPY packages/blockchain-interfaces/package.json packages/blockchain-interfaces/
 RUN pnpm install --frozen-lockfile || pnpm install
 
 # --- Stage 2: Builder ---
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
@@ -55,7 +55,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
 # --- Stage 3: Runner ---
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 
 RUN apk add --no-cache libc6-compat curl
 
