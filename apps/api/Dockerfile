@@ -4,7 +4,7 @@
 # ============================================
 
 # --- Stage 1: Builder ---
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 RUN apk add --no-cache libc6-compat
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
@@ -39,7 +39,7 @@ WORKDIR /app/apps/api
 RUN pnpm build
 
 # --- Stage 2: Runner ---
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 
 RUN apk add --no-cache libc6-compat curl wget
 
