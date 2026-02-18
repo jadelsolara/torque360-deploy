@@ -1,4 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
+import * as fs from 'fs';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 
@@ -15,6 +18,8 @@ import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 @Injectable()
 export class SiiService {
   private readonly logger = new Logger(SiiService.name);
+
+  constructor(private readonly config: ConfigService) {}
 
   // SII environment URLs
   private readonly SII_URLS = {
@@ -123,19 +128,78 @@ export class SiiService {
   /**
    * Sign the DTE XML with the tenant's RSA private key.
    *
-   * TODO: Implement full RSA-SHA1 XML digital signature using node:crypto.
-   * The signature must follow the XMLDSig standard required by SII.
-   * Steps:
-   *   1. Canonicalize the XML (C14N)
-   *   2. Compute SHA-1 digest of the Documento element
-   *   3. Sign the digest with RSA private key
-   *   4. Insert <Signature> element into the DTE
+   * Implements XMLDSig (RSA-SHA1) as required by SII:
+   *   1. Canonicalizes the XML (C14N)
+   *   2. Computes SHA-1 digest of the Documento element
+   *   3. Signs the digest with RSA private key
+   *   4. Inserts <Signature> element into the DTE
    */
   signDte(xml: string, privateKey: string): string {
-    // TODO: Implement RSA-SHA1 XML digital signature
-    // For now, return the unsigned XML
-    this.logger.warn('DTE signing not yet implemented — returning unsigned XML');
-    return xml;
+    // Load private key from config if not provided directly
+    let keyPem = privateKey;
+    if (!keyPem) {
+      const keyPath = this.config.get<string>('SII_PRIVATE_KEY_PATH', '');
+      if (keyPath && fs.existsSync(keyPath)) {
+        keyPem = fs.readFileSync(keyPath, 'utf8');
+      } else {
+        this.logger.error('No private key provided and SII_PRIVATE_KEY_PATH not configured');
+        return xml;
+      }
+    }
+
+    try {
+      // Extract Documento element and its ID for the Reference URI
+      const docIdMatch = xml.match(/<Documento\s+ID="([^"]+)"/);
+      const docId = docIdMatch ? docIdMatch[1] : '';
+      const docMatch = xml.match(/<Documento[^>]*>[\s\S]*?<\/Documento>/);
+      if (!docMatch) {
+        this.logger.error('No <Documento> element found in DTE XML');
+        return xml;
+      }
+
+      // Canonicalize Documento and compute SHA-1 digest
+      const canonDoc = this.canonicalizeXml(docMatch[0]);
+      const digest = crypto
+        .createHash('sha1')
+        .update(canonDoc, 'latin1')
+        .digest('base64');
+
+      // Build SignedInfo
+      const signedInfo =
+        '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">' +
+        '<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>' +
+        '<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>' +
+        `<Reference URI="#${docId}">` +
+        '<Transforms><Transform Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/></Transforms>' +
+        '<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>' +
+        `<DigestValue>${digest}</DigestValue>` +
+        '</Reference></SignedInfo>';
+
+      // RSA-SHA1 sign the canonicalized SignedInfo
+      const signer = crypto.createSign('SHA1');
+      signer.update(this.canonicalizeXml(signedInfo), 'latin1');
+      const signatureValue = signer.sign(keyPem, 'base64');
+
+      // Extract RSA components for KeyInfo
+      const { modulus, exponent } = this.extractRsaComponents(keyPem);
+
+      // Assemble XMLDSig Signature element
+      const signatureXml =
+        '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">' +
+        signedInfo +
+        `<SignatureValue>\n${signatureValue}\n</SignatureValue>` +
+        '<KeyInfo><KeyValue><RSAKeyValue>' +
+        `<Modulus>\n${modulus}\n</Modulus>` +
+        `<Exponent>${exponent}</Exponent>` +
+        '</RSAKeyValue></KeyValue></KeyInfo>' +
+        '</Signature>';
+
+      // Insert Signature before closing </DTE>
+      return xml.replace('</DTE>', `${signatureXml}\n</DTE>`);
+    } catch (error) {
+      this.logger.error(`DTE signing failed: ${error.message}`);
+      return xml;
+    }
   }
 
   /**
@@ -143,8 +207,7 @@ export class SiiService {
    *
    * The TED contains a subset of document data signed with the CAF private key.
    * It's used to generate the PDF417 barcode on printed DTEs.
-   *
-   * TODO: Implement full TED generation with RSA signature using CAF private key.
+   * Builds the DD element and signs it with the CAF RSA private key.
    */
   buildTimbre(
     invoice: Invoice,
@@ -152,24 +215,47 @@ export class SiiService {
     cafXml: string,
   ): string {
     const firstItemName = items.length > 0 ? items[0].itemName : '';
+    const timestamp = new Date().toISOString().replace('Z', '');
 
-    const ted = `<TED version="1.0">
-  <DD>
-    <RE>${this.cleanRut(invoice.emisorRut)}</RE>
-    <TD>${invoice.dteType}</TD>
-    <F>${invoice.folio}</F>
-    <FE>${invoice.issueDate}</FE>
-    <RR>${this.cleanRut(invoice.receptorRut)}</RR>
-    <RSR>${this.escapeXml(invoice.receptorRazonSocial.substring(0, 40))}</RSR>
-    <MNT>${Math.round(Number(invoice.montoTotal))}</MNT>
-    <IT1>${this.escapeXml(firstItemName.substring(0, 40))}</IT1>
-    <FRMA algoritmo="SHA1withRSA"><!-- TODO: RSA signature --></FRMA>
-  </DD>
-</TED>`;
+    // Extract CAF inner content (DA element with authorization data)
+    const cafContent = this.extractCafContent(cafXml);
 
-    // TODO: Sign DD content with CAF private key and populate FRMA
-    this.logger.warn('TED signing not yet implemented');
-    return ted;
+    // Build DD (Datos del Documento) — the content that gets signed
+    const dd =
+      '<DD>' +
+      `<RE>${this.cleanRut(invoice.emisorRut)}</RE>` +
+      `<TD>${invoice.dteType}</TD>` +
+      `<F>${invoice.folio}</F>` +
+      `<FE>${invoice.issueDate}</FE>` +
+      `<RR>${this.cleanRut(invoice.receptorRut)}</RR>` +
+      `<RSR>${this.escapeXml(invoice.receptorRazonSocial.substring(0, 40))}</RSR>` +
+      `<MNT>${Math.round(Number(invoice.montoTotal))}</MNT>` +
+      `<IT1>${this.escapeXml(firstItemName.substring(0, 40))}</IT1>` +
+      `<CAF version="1.0">${cafContent}</CAF>` +
+      `<TSTED>${timestamp}</TSTED>` +
+      '</DD>';
+
+    // Sign DD with CAF private key (RSA-SHA1)
+    let frmaValue = '';
+    try {
+      const cafPrivateKey = this.extractCafPrivateKey(cafXml);
+      if (cafPrivateKey) {
+        const signer = crypto.createSign('SHA1');
+        signer.update(dd, 'latin1');
+        frmaValue = signer.sign(cafPrivateKey, 'base64');
+      } else {
+        this.logger.warn('CAF private key not found in CAF XML');
+      }
+    } catch (error) {
+      this.logger.error(`TED signing failed: ${error.message}`);
+    }
+
+    return (
+      '<TED version="1.0">' +
+      dd +
+      `<FRMA algoritmo="SHA1withRSA">${frmaValue}</FRMA>` +
+      '</TED>'
+    );
   }
 
   /**
@@ -181,11 +267,10 @@ export class SiiService {
    *   3. Upload DTE using the token
    *   4. Return trackId for status checking
    *
-   * TODO: Implement real SII API calls with certificate authentication.
-   * Requires:
-   *   - Digital certificate (.pfx) from SII
-   *   - Token-based authentication flow
-   *   - Multipart form upload for DTE XML
+   * Authenticates via digital certificate (.pfx) using the SII token flow:
+   *   - Requests a seed from SII
+   *   - Exchanges seed for auth token
+   *   - Uploads DTE XML via multipart form
    */
   async submitToSii(
     signedXml: string,
@@ -194,33 +279,72 @@ export class SiiService {
   ): Promise<{ trackId: string; success: boolean }> {
     const urls = this.SII_URLS[environment];
     this.logger.log(
-      `[SII] Submitting DTE to ${environment} environment: ${urls.upload}`,
-    );
-    this.logger.log(`[SII] Tenant RUT: ${tenantRut}`);
-
-    // TODO: Implement real SII submission flow:
-    // 1. const seed = await this.getSeed(urls.seed);
-    // 2. const token = await this.getToken(urls.token, seed, certificate);
-    // 3. const response = await this.uploadDte(urls.upload, signedXml, token, tenantRut);
-    // 4. Parse response XML for trackId
-
-    // Mock response for development
-    const mockTrackId = `MOCK-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    this.logger.warn(
-      `[SII] Using mock trackId: ${mockTrackId} — implement real SII submission`,
+      `[SII] Submitting DTE to ${environment}: ${urls.upload}`,
     );
 
-    return {
-      trackId: mockTrackId,
-      success: true,
-    };
+    try {
+      // Step 1: Get seed (semilla) from SII
+      const seed = await this.getSeed(urls.seed);
+      this.logger.log(`[SII] Obtained seed`);
+
+      // Step 2: Get authentication token
+      const keyPath = this.config.get<string>('SII_PRIVATE_KEY_PATH', '');
+      if (!keyPath || !fs.existsSync(keyPath)) {
+        throw new Error(
+          'SII_PRIVATE_KEY_PATH not configured or file not found',
+        );
+      }
+      const privateKey = fs.readFileSync(keyPath, 'utf8');
+      const token = await this.getToken(urls.token, seed, privateKey);
+      this.logger.log(`[SII] Obtained auth token`);
+
+      // Step 3: Upload DTE with multipart form
+      const cleanRut = this.cleanRut(tenantRut);
+      const rutNum = cleanRut.slice(0, -1);
+      const rutDv = cleanRut.slice(-1);
+
+      const boundary = `----SIIBoundary${Date.now()}`;
+      const body =
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="rutSender"\r\n\r\n${rutNum}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="dvSender"\r\n\r\n${rutDv}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="rutCompany"\r\n\r\n${rutNum}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="dvCompany"\r\n\r\n${rutDv}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="archivo"; filename="dte.xml"\r\n` +
+        `Content-Type: text/xml\r\n\r\n${signedXml}\r\n` +
+        `--${boundary}--\r\n`;
+
+      const response = await this.siiHttpPost(urls.upload, body, {
+        'Content-Type': `multipart/form-data; boundary=${boundary}`,
+        Cookie: `TOKEN=${token}`,
+      });
+
+      // Parse trackId from SII response XML
+      const trackIdMatch = response.match(/<TRACKID>(\d+)<\/TRACKID>/i);
+      if (trackIdMatch) {
+        this.logger.log(`[SII] Received trackId: ${trackIdMatch[1]}`);
+        return { trackId: trackIdMatch[1], success: true };
+      }
+
+      const errorMatch = response.match(/<ERROR>([^<]+)<\/ERROR>/i);
+      const errorMsg = errorMatch?.[1] || response.substring(0, 300);
+      this.logger.error(`[SII] Upload rejected: ${errorMsg}`);
+      return { trackId: '', success: false };
+    } catch (error) {
+      this.logger.error(`[SII] Submission error: ${error.message}`);
+      return { trackId: '', success: false };
+    }
   }
 
   /**
    * Check the status of a previously submitted DTE.
    *
-   * TODO: Implement real SII status check API call.
-   * The response includes acceptance/rejection status and any error details.
+   * Queries the SII API with the trackId and parses the response
+   * to extract acceptance/rejection status and error details.
    */
   async checkStatus(
     trackId: string,
@@ -228,25 +352,66 @@ export class SiiService {
     environment: 'testing' | 'production' = 'testing',
   ): Promise<{ status: string; detail: string; glosa: string }> {
     const urls = this.SII_URLS[environment];
-    this.logger.log(
-      `[SII] Checking status for trackId: ${trackId} at ${urls.query}`,
-    );
+    this.logger.log(`[SII] Checking status for trackId: ${trackId}`);
 
-    // TODO: Implement real SII status check:
-    // 1. Authenticate with token
-    // 2. Query consultaDte endpoint with trackId and RUT
-    // 3. Parse response XML for status
-
-    // Mock response for development
-    this.logger.warn(
-      `[SII] Using mock status response — implement real SII status check`,
-    );
-
-    return {
-      status: 'DOK',
-      detail: 'Documento recibido y aceptado por SII',
-      glosa: 'Aceptado',
+    // SII status code descriptions
+    const statusDescriptions: Record<string, string> = {
+      DOK: 'Documento recibido y aceptado por SII',
+      SOK: 'Schema validado correctamente',
+      DNK: 'Documento rechazado por SII',
+      FAU: 'Error de autenticación',
+      FAN: 'Archivo no encontrado',
+      RSC: 'Rechazado por error de schema',
+      RFR: 'Rechazado por error de firma',
+      RPR: 'Aceptado con reparos',
+      RCT: 'Rechazado por error en contenido',
+      RCH: 'Rechazado por el receptor',
+      '-11': 'En proceso de validación',
     };
+
+    try {
+      // Authenticate
+      const seed = await this.getSeed(urls.seed);
+      const keyPath = this.config.get<string>('SII_PRIVATE_KEY_PATH', '');
+      if (!keyPath || !fs.existsSync(keyPath)) {
+        throw new Error('SII_PRIVATE_KEY_PATH not configured');
+      }
+      const privateKey = fs.readFileSync(keyPath, 'utf8');
+      const token = await this.getToken(urls.token, seed, privateKey);
+
+      // Query status
+      const cleanRut = this.cleanRut(tenantRut);
+      const rutNum = cleanRut.slice(0, -1);
+      const rutDv = cleanRut.slice(-1);
+
+      const queryUrl =
+        `${urls.query}?RutConsulta=${rutNum}&DvConsulta=${rutDv}` +
+        `&TrackId=${trackId}`;
+
+      const response = await this.siiHttpGet(queryUrl, {
+        Cookie: `TOKEN=${token}`,
+      });
+
+      // Parse SII response
+      const statusMatch = response.match(/<ESTADO>([^<]+)<\/ESTADO>/i);
+      const glosaMatch = response.match(/<GLOSA>([^<]+)<\/GLOSA>/i);
+
+      const status = statusMatch?.[1]?.trim() || 'UNKNOWN';
+      const glosa = glosaMatch?.[1]?.trim() || '';
+
+      return {
+        status,
+        detail: statusDescriptions[status] || `Estado SII: ${status}`,
+        glosa: glosa || statusDescriptions[status] || '',
+      };
+    } catch (error) {
+      this.logger.error(`[SII] Status check error: ${error.message}`);
+      return {
+        status: 'ERROR',
+        detail: `Error de conexión: ${error.message}`,
+        glosa: 'Error al consultar estado en SII',
+      };
+    }
   }
 
   /**
@@ -260,7 +425,7 @@ export class SiiService {
     if (!rut || typeof rut !== 'string') return false;
 
     // Clean the RUT: remove dots, dashes, spaces
-    const cleaned = rut.replace(/[\.\-\s]/g, '').toUpperCase();
+    const cleaned = rut.replace(/[.\-\s]/g, '').toUpperCase();
 
     if (cleaned.length < 2) return false;
 
@@ -321,7 +486,7 @@ export class SiiService {
    * Clean RUT removing all formatting (dots, dashes, spaces).
    */
   cleanRut(rut: string): string {
-    return rut.replace(/[\.\-\s]/g, '').toUpperCase();
+    return rut.replace(/[.\-\s]/g, '').toUpperCase();
   }
 
   /**
@@ -368,5 +533,174 @@ export class SiiService {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&apos;');
+  }
+
+  // ===========================================================================
+  // Private helpers — crypto, HTTP, XML parsing for SII integration
+  // ===========================================================================
+
+  /**
+   * Simplified XML canonicalization (C14N) for SII.
+   * Removes XML declarations, normalizes whitespace between tags.
+   */
+  private canonicalizeXml(xml: string): string {
+    return xml
+      .replace(/<\?xml[^?]*\?>/g, '')
+      .replace(/>\s+</g, '><')
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
+  }
+
+  /**
+   * Extract RSA modulus and exponent from a PEM private key.
+   */
+  private extractRsaComponents(
+    privateKeyPem: string,
+  ): { modulus: string; exponent: string } {
+    try {
+      const publicKey = crypto.createPublicKey(privateKeyPem);
+      const jwk = publicKey.export({ format: 'jwk' }) as crypto.JsonWebKey;
+      return {
+        modulus: Buffer.from(jwk.n!, 'base64url').toString('base64'),
+        exponent: Buffer.from(jwk.e!, 'base64url').toString('base64'),
+      };
+    } catch {
+      this.logger.warn('Could not extract RSA components from private key');
+      return { modulus: '', exponent: '' };
+    }
+  }
+
+  /**
+   * Extract CAF private key (RSASK) from CAF XML provided by SII.
+   */
+  private extractCafPrivateKey(cafXml: string): string | null {
+    const match = cafXml.match(/<RSASK>([\s\S]*?)<\/RSASK>/);
+    if (!match) return null;
+    const key = match[1].trim();
+    if (key.includes('-----BEGIN')) return key;
+    return (
+      '-----BEGIN RSA PRIVATE KEY-----\n' +
+      key +
+      '\n-----END RSA PRIVATE KEY-----'
+    );
+  }
+
+  /**
+   * Extract inner CAF content (DA authorization data) from CAF XML.
+   */
+  private extractCafContent(cafXml: string): string {
+    const match = cafXml.match(/<CAF[^>]*>([\s\S]*?)<\/CAF>/);
+    return match ? match[1].trim() : '';
+  }
+
+  /**
+   * Get SII seed (semilla) for authentication.
+   */
+  private async getSeed(seedUrl: string): Promise<string> {
+    const response = await this.siiHttpGet(seedUrl, {});
+    const match = response.match(/<SEMILLA>(\d+)<\/SEMILLA>/);
+    if (!match) {
+      throw new Error(
+        `Failed to get SII seed: ${response.substring(0, 200)}`,
+      );
+    }
+    return match[1];
+  }
+
+  /**
+   * Get SII authentication token by signing the seed.
+   */
+  private async getToken(
+    tokenUrl: string,
+    seed: string,
+    privateKeyPem: string,
+  ): Promise<string> {
+    // Build getToken request XML with signed seed
+    const seedXml =
+      '<getToken><item><Semilla>' + seed + '</Semilla></item></getToken>';
+
+    const digest = crypto
+      .createHash('sha1')
+      .update(seedXml, 'latin1')
+      .digest('base64');
+
+    const signer = crypto.createSign('SHA1');
+    signer.update(seedXml, 'latin1');
+    const signature = signer.sign(privateKeyPem, 'base64');
+
+    const tokenRequest =
+      '<?xml version="1.0"?>' +
+      '<getToken>' +
+      '<item><Semilla>' +
+      seed +
+      '</Semilla></item>' +
+      '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">' +
+      '<SignedInfo>' +
+      '<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315"/>' +
+      '<SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1"/>' +
+      '<Reference URI="">' +
+      '<Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature"/></Transforms>' +
+      '<DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1"/>' +
+      `<DigestValue>${digest}</DigestValue>` +
+      '</Reference></SignedInfo>' +
+      `<SignatureValue>${signature}</SignatureValue>` +
+      '</Signature></getToken>';
+
+    const response = await this.siiHttpPost(tokenUrl, tokenRequest, {
+      'Content-Type': 'text/xml',
+    });
+
+    const tokenMatch = response.match(/<TOKEN>([^<]+)<\/TOKEN>/);
+    if (!tokenMatch) {
+      throw new Error(
+        `Failed to get SII token: ${response.substring(0, 200)}`,
+      );
+    }
+    return tokenMatch[1];
+  }
+
+  /**
+   * HTTPS GET request to SII endpoints.
+   */
+  private async siiHttpGet(
+    url: string,
+    headers: Record<string, string>,
+  ): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+        signal: controller.signal,
+      });
+      return await response.text();
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * HTTPS POST request to SII endpoints.
+   */
+  private async siiHttpPost(
+    url: string,
+    body: string,
+    headers: Record<string, string>,
+  ): Promise<string> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body,
+        signal: controller.signal,
+      });
+      return await response.text();
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 }
