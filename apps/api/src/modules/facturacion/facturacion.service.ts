@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { InvoiceItem } from '../../database/entities/invoice-item.entity';
 import { CafFolio } from '../../database/entities/caf.entity';
@@ -52,6 +52,7 @@ export class FacturacionService {
     @InjectRepository(WorkOrderPart)
     private workOrderPartRepo: Repository<WorkOrderPart>,
     private siiService: SiiService,
+    private dataSource: DataSource,
   ) {}
 
   /**
@@ -200,16 +201,25 @@ export class FacturacionService {
       items: builtItems as InvoiceItem[],
     });
 
-    const savedInvoice = await this.invoiceRepo.save(invoice) as Invoice;
+    // Atomic: save invoice + build XML + update status
+    const savedId = await this.dataSource.transaction(async (manager) => {
+      const savedInvoice = await manager.save(Invoice, invoice) as Invoice;
 
-    // Build DTE XML
-    const fullInvoice = await this.findOne(tenantId, savedInvoice.id);
-    const xml = this.siiService.buildDteXml(fullInvoice, fullInvoice.items);
-    fullInvoice.xmlDte = xml;
-    fullInvoice.status = 'issued';
-    await this.invoiceRepo.save(fullInvoice);
+      // Reload with items for XML generation
+      const fullInvoice = await manager.findOne(Invoice, {
+        where: { id: savedInvoice.id, tenantId },
+        relations: ['items'],
+      });
 
-    return this.findOne(tenantId, savedInvoice.id);
+      const xml = this.siiService.buildDteXml(fullInvoice!, fullInvoice!.items);
+      fullInvoice!.xmlDte = xml;
+      fullInvoice!.status = 'issued';
+      await manager.save(Invoice, fullInvoice!);
+
+      return savedInvoice.id;
+    });
+
+    return this.findOne(tenantId, savedId);
   }
 
   /**
@@ -460,25 +470,22 @@ export class FacturacionService {
     // Create the invoice first
     const creditNote = await this.createInvoice(tenantId, invoiceDto, userId);
 
-    // Update reference fields
-    await this.invoiceRepo.update(
-      { id: creditNote.id, tenantId },
-      {
+    // Atomic: update reference fields + mark original as cancelled if anulación
+    await this.dataSource.transaction(async (manager) => {
+      await manager.update(Invoice, { id: creditNote.id, tenantId }, {
         refDteType: dto.refDteType,
         refFolio: dto.refFolio,
         refFecha: dto.refFecha,
         refRazon: dto.refRazon,
         refCodigo: dto.refCodigo,
-      },
-    );
+      });
 
-    // If anulación, mark original as cancelled
-    if (dto.refCodigo === 1) {
-      await this.invoiceRepo.update(
-        { id: originalInvoice.id, tenantId },
-        { status: 'cancelled' },
-      );
-    }
+      if (dto.refCodigo === 1) {
+        await manager.update(Invoice, { id: originalInvoice.id, tenantId }, {
+          status: 'cancelled',
+        });
+      }
+    });
 
     return this.findOne(tenantId, creditNote.id);
   }
@@ -690,36 +697,39 @@ export class FacturacionService {
    * Atomically increments the current_folio and marks as exhausted if needed.
    */
   async getNextFolio(tenantId: string, dteType: number): Promise<number> {
-    const caf = await this.cafRepo.findOne({
-      where: {
-        tenantId,
-        dteType,
-        isActive: true,
-        isExhausted: false,
-      },
-      order: { folioFrom: 'ASC' },
+    // Atomic read + increment to prevent duplicate folio assignment under concurrency
+    return this.dataSource.transaction(async (manager) => {
+      const caf = await manager.findOne(CafFolio, {
+        where: {
+          tenantId,
+          dteType,
+          isActive: true,
+          isExhausted: false,
+        },
+        order: { folioFrom: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!caf) {
+        throw new BadRequestException(
+          `No hay folios CAF disponibles para ${this.getDteTypeName(dteType)} (tipo ${dteType}). ` +
+            'Suba un archivo CAF desde el SII.',
+        );
+      }
+
+      const folio = caf.currentFolio;
+
+      if (caf.currentFolio >= caf.folioTo) {
+        caf.isExhausted = true;
+        caf.isActive = false;
+      } else {
+        caf.currentFolio = caf.currentFolio + 1;
+      }
+
+      await manager.save(CafFolio, caf);
+
+      return folio;
     });
-
-    if (!caf) {
-      throw new BadRequestException(
-        `No hay folios CAF disponibles para ${this.getDteTypeName(dteType)} (tipo ${dteType}). ` +
-          'Suba un archivo CAF desde el SII.',
-      );
-    }
-
-    const folio = caf.currentFolio;
-
-    // Check if this is the last folio
-    if (caf.currentFolio >= caf.folioTo) {
-      caf.isExhausted = true;
-      caf.isActive = false;
-    } else {
-      caf.currentFolio = caf.currentFolio + 1;
-    }
-
-    await this.cafRepo.save(caf);
-
-    return folio;
   }
 
   /**

@@ -157,7 +157,7 @@ export class InventoryCostService {
       // costPrice already updated above
       await queryRunner.manager.save(InventoryItem, item);
 
-      // Create movement record
+      // Create movement record with cost data
       const movement = queryRunner.manager.create(StockMovement, {
         tenantId,
         itemId: inventoryItemId,
@@ -165,6 +165,8 @@ export class InventoryCostService {
         toLocationId: reference?.locationId || undefined,
         movementType,
         quantity,
+        unitCost,
+        averageCostAfter: newAverageCost,
         referenceType: reference?.type || undefined,
         referenceId: reference?.id || undefined,
         reason: reference?.reason || `Entry: ${quantity} units @ ${unitCost}/unit, avg cost: ${avgCostBefore} -> ${newAverageCost}`,
@@ -244,7 +246,7 @@ export class InventoryCostService {
       // totalStockValue computed from stockQuantity * costPrice
       await queryRunner.manager.save(InventoryItem, item);
 
-      // Create movement record
+      // Create movement record with cost data
       const movement = queryRunner.manager.create(StockMovement, {
         tenantId,
         itemId: inventoryItemId,
@@ -252,6 +254,8 @@ export class InventoryCostService {
         fromLocationId: reference?.locationId || undefined,
         movementType,
         quantity,
+        unitCost: currentAvgCost,
+        averageCostAfter: newAvgCost,
         referenceType: reference?.type || undefined,
         referenceId: reference?.id || undefined,
         reason: reference?.reason || `Exit: ${quantity} units @ avg ${currentAvgCost}/unit`,
@@ -577,19 +581,32 @@ export class InventoryCostService {
 
     const [movements, total] = await qb.getManyAndCount();
 
-    const data: CostHistoryEntry[] = movements.map((m) => ({
-      id: m.id,
-      createdAt: m.createdAt,
-      movementType: m.movementType,
-      quantity: Number(m.quantity),
-      unitCost: 0,
-      totalCost: 0,
-      averageCostBefore: 0,
-      averageCostAfter: 0,
-      referenceType: m.referenceType,
-      referenceId: m.referenceId,
-      reason: m.reason,
-    }));
+    // Build cost history — reconstruct averageCostBefore from previous movement's averageCostAfter
+    const chronological = [...movements].reverse();
+    const costBeforeMap = new Map<string, number>();
+    let prevAvgCost = 0;
+    for (const m of chronological) {
+      costBeforeMap.set(m.id, prevAvgCost);
+      prevAvgCost = m.averageCostAfter != null ? Number(m.averageCostAfter) : prevAvgCost;
+    }
+
+    const data: CostHistoryEntry[] = movements.map((m) => {
+      const uc = m.unitCost != null ? Number(m.unitCost) : 0;
+      const avgAfter = m.averageCostAfter != null ? Number(m.averageCostAfter) : 0;
+      return {
+        id: m.id,
+        createdAt: m.createdAt,
+        movementType: m.movementType,
+        quantity: Number(m.quantity),
+        unitCost: uc,
+        totalCost: Math.round(Number(m.quantity) * uc * 100) / 100,
+        averageCostBefore: costBeforeMap.get(m.id) ?? 0,
+        averageCostAfter: avgAfter,
+        referenceType: m.referenceType,
+        referenceId: m.referenceId,
+        reason: m.reason,
+      };
+    });
 
     return { data, total };
   }
@@ -630,8 +647,7 @@ export class InventoryCostService {
 
       for (const mov of movements) {
         const qty = Number(mov.quantity);
-        // unitCost not stored on movement - parse from reason if available
-        const unitCost = 0;
+        const unitCost = mov.unitCost != null ? Number(mov.unitCost) : 0;
         const movType = mov.movementType;
 
         const isEntry =
@@ -665,7 +681,8 @@ export class InventoryCostService {
         }
         // Transfer movements don't affect average cost or total stock
 
-        // Movement cost audit data stored in reason field since DB lacks cost columns
+        // Persist recalculated cost data back to the movement
+        mov.averageCostAfter = avgCost;
         await queryRunner.manager.save(StockMovement, mov);
       }
 

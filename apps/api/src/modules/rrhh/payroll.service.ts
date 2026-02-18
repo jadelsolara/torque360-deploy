@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Payroll } from '../../database/entities/payroll.entity';
 import { PayrollDetail } from '../../database/entities/payroll-detail.entity';
 import { Employee } from '../../database/entities/employee.entity';
@@ -25,6 +25,7 @@ export class PayrollService {
     @InjectRepository(Payroll) private payrollRepo: Repository<Payroll>,
     @InjectRepository(PayrollDetail) private detailRepo: Repository<PayrollDetail>,
     @InjectRepository(Employee) private employeeRepo: Repository<Employee>,
+    private dataSource: DataSource,
   ) {}
 
   // ── Create draft payroll ──────────────────────────────────────────
@@ -70,9 +71,6 @@ export class PayrollService {
         `No se puede recalcular una nomina con estado ${payroll.status}`,
       );
     }
-
-    // Delete existing details if recalculating
-    await this.detailRepo.delete({ payrollId, tenantId });
 
     // Get all active employees
     const employees = await this.employeeRepo.find({
@@ -147,19 +145,21 @@ export class PayrollService {
       totalCostoEmpresa += result.costoTotalEmpresa;
     }
 
-    // Bulk save all details
-    await this.detailRepo.save(detailEntities);
+    // Atomic: delete old details + insert new + update header
+    return this.dataSource.transaction(async (manager) => {
+      await manager.delete(PayrollDetail, { payrollId, tenantId });
+      await manager.save(PayrollDetail, detailEntities);
 
-    // Update payroll header
-    payroll.status = 'CALCULATED';
-    payroll.employeeCount = detailEntities.length;
-    payroll.totalHaberes = totalHaberes;
-    payroll.totalDescuentos = totalDescuentos;
-    payroll.totalLiquido = totalLiquido;
-    payroll.totalCostoEmpresa = totalCostoEmpresa;
-    payroll.calculatedAt = new Date();
+      payroll.status = 'CALCULATED';
+      payroll.employeeCount = detailEntities.length;
+      payroll.totalHaberes = totalHaberes;
+      payroll.totalDescuentos = totalDescuentos;
+      payroll.totalLiquido = totalLiquido;
+      payroll.totalCostoEmpresa = totalCostoEmpresa;
+      payroll.calculatedAt = new Date();
 
-    return this.payrollRepo.save(payroll) as Promise<Payroll>;
+      return manager.save(Payroll, payroll);
+    });
   }
 
   // ── Approve ───────────────────────────────────────────────────────
@@ -209,12 +209,12 @@ export class PayrollService {
       );
     }
 
-    payroll.status = 'VOIDED';
-
-    // Remove associated details
-    await this.detailRepo.delete({ payrollId, tenantId });
-
-    return this.payrollRepo.save(payroll) as Promise<Payroll>;
+    // Atomic: delete details + update status
+    return this.dataSource.transaction(async (manager) => {
+      await manager.delete(PayrollDetail, { payrollId, tenantId });
+      payroll.status = 'VOIDED';
+      return manager.save(Payroll, payroll);
+    });
   }
 
   // ── Queries ───────────────────────────────────────────────────────

@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DataSource } from 'typeorm';
 import { WorkOrder } from '../../database/entities/work-order.entity';
 import { WorkOrderPart } from '../../database/entities/work-order-part.entity';
 import {
@@ -86,6 +86,7 @@ export class WorkOrdersService {
     private workOrderRepo: Repository<WorkOrder>,
     @InjectRepository(WorkOrderPart)
     private partRepo: Repository<WorkOrderPart>,
+    private dataSource: DataSource,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════
@@ -558,12 +559,13 @@ export class WorkOrdersService {
       isOem: dto.isOem || false,
     });
 
-    const savedPart = await this.partRepo.save(part);
-
-    await this.recalculateTotal(workOrder);
-    await this.workOrderRepo.save(workOrder);
-
-    return savedPart;
+    // Atomic: save part + recalculate + update work order total
+    return this.dataSource.transaction(async (manager) => {
+      const savedPart = await manager.save(WorkOrderPart, part);
+      await this.recalculateTotal(workOrder);
+      await manager.save(WorkOrder, workOrder);
+      return savedPart;
+    });
   }
 
   async removePart(
@@ -580,10 +582,12 @@ export class WorkOrdersService {
       throw new NotFoundException('Part not found in this work order');
     }
 
-    await this.partRepo.remove(part);
-
-    await this.recalculateTotal(workOrder);
-    await this.workOrderRepo.save(workOrder);
+    // Atomic: remove part + recalculate + update work order total
+    await this.dataSource.transaction(async (manager) => {
+      await manager.remove(WorkOrderPart, part);
+      await this.recalculateTotal(workOrder);
+      await manager.save(WorkOrder, workOrder);
+    });
   }
 
   // ═══════════════════════════════════════════════════════════════════

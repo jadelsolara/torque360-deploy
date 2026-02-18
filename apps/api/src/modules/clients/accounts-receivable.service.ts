@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { ClientPayment } from '../../database/entities/client-payment.entity';
 import { Invoice } from '../../database/entities/invoice.entity';
 import { Client } from '../../database/entities/client.entity';
@@ -22,6 +22,7 @@ export class AccountsReceivableService {
     private invoiceRepo: Repository<Invoice>,
     @InjectRepository(Client)
     private clientRepo: Repository<Client>,
+    private dataSource: DataSource,
   ) {}
 
   // =========================================================================
@@ -85,42 +86,54 @@ export class AccountsReceivableService {
     // Generate payment number: COB-YYYYMM-NNNN
     const paymentNumber = await this.generatePaymentNumber(tenantId);
 
-    // Create payment record
-    const payment = this.paymentRepo.create({
-      tenantId,
-      clientId: dto.clientId,
-      invoiceId: dto.invoiceId,
-      paymentNumber,
-      paymentDate: dto.paymentDate,
-      amount: dto.amount,
-      paymentMethod: dto.paymentMethod as ClientPayment['paymentMethod'],
-      bankName: dto.bankName || undefined,
-      transactionRef: dto.transactionRef || undefined,
-      chequeNumber: dto.chequeNumber || undefined,
-      receiptUrl: dto.receiptUrl || undefined,
-      notes: dto.notes || undefined,
-      status: 'PENDING',
-      createdBy: userId,
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedPayment = await this.paymentRepo.save(payment) as ClientPayment;
+    try {
+      // Create payment record
+      const payment = queryRunner.manager.create(ClientPayment, {
+        tenantId,
+        clientId: dto.clientId,
+        invoiceId: dto.invoiceId,
+        paymentNumber,
+        paymentDate: dto.paymentDate,
+        amount: dto.amount,
+        paymentMethod: dto.paymentMethod as ClientPayment['paymentMethod'],
+        bankName: dto.bankName || undefined,
+        transactionRef: dto.transactionRef || undefined,
+        chequeNumber: dto.chequeNumber || undefined,
+        receiptUrl: dto.receiptUrl || undefined,
+        notes: dto.notes || undefined,
+        status: 'PENDING',
+        createdBy: userId,
+      });
 
-    // Update invoice paidAmount
-    const newPaidAmount =
-      Math.round((Number(invoice.paidAmount) + dto.amount) * 100) / 100;
-    const totalAmount = Number(invoice.montoTotal);
+      const savedPayment = await queryRunner.manager.save(ClientPayment, payment);
 
-    invoice.paidAmount = newPaidAmount;
+      // Update invoice paidAmount
+      const newPaidAmount =
+        Math.round((Number(invoice.paidAmount) + dto.amount) * 100) / 100;
+      const totalAmount = Number(invoice.montoTotal);
 
-    // Mark as fully paid if balance is zero
-    if (Math.abs(newPaidAmount - totalAmount) < 0.01) {
-      invoice.isPaid = true;
-      invoice.paidAt = new Date();
+      invoice.paidAmount = newPaidAmount;
+
+      // Mark as fully paid if balance is zero
+      if (Math.abs(newPaidAmount - totalAmount) < 0.01) {
+        invoice.isPaid = true;
+        invoice.paidAt = new Date();
+      }
+
+      await queryRunner.manager.save(Invoice, invoice);
+
+      await queryRunner.commitTransaction();
+      return this.findPaymentById(tenantId, savedPayment.id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    await this.invoiceRepo.save(invoice);
-
-    return this.findPaymentById(tenantId, savedPayment.id);
   }
 
   /**
@@ -160,22 +173,36 @@ export class AccountsReceivableService {
       throw new BadRequestException('El pago ya esta anulado');
     }
 
-    // Restore invoice balance
-    const invoice = await this.invoiceRepo.findOne({
-      where: { id: payment.invoiceId, tenantId },
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (invoice) {
-      const restoredPaid =
-        Math.round((Number(invoice.paidAmount) - Number(payment.amount)) * 100) / 100;
-      invoice.paidAmount = Math.max(0, restoredPaid);
-      invoice.isPaid = false;
-      invoice.paidAt = undefined as any;
-      await this.invoiceRepo.save(invoice);
+    try {
+      // Restore invoice balance
+      const invoice = await queryRunner.manager.findOne(Invoice, {
+        where: { id: payment.invoiceId, tenantId },
+      });
+
+      if (invoice) {
+        const restoredPaid =
+          Math.round((Number(invoice.paidAmount) - Number(payment.amount)) * 100) / 100;
+        invoice.paidAmount = Math.max(0, restoredPaid);
+        invoice.isPaid = false;
+        invoice.paidAt = undefined as any;
+        await queryRunner.manager.save(Invoice, invoice);
+      }
+
+      payment.status = 'VOIDED';
+      await queryRunner.manager.save(ClientPayment, payment);
+
+      await queryRunner.commitTransaction();
+      return this.findPaymentById(tenantId, paymentId);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    payment.status = 'VOIDED';
-    return this.paymentRepo.save(payment) as Promise<ClientPayment>;
   }
 
   /**

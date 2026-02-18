@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DataSource } from 'typeorm';
 import { Quotation } from '../../database/entities/quotation.entity';
 import { WorkOrder } from '../../database/entities/work-order.entity';
 import {
@@ -57,6 +57,7 @@ export class QuotationsService {
     private quotationRepo: Repository<Quotation>,
     @InjectRepository(WorkOrder)
     private workOrderRepo: Repository<WorkOrder>,
+    private dataSource: DataSource,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════
@@ -432,24 +433,36 @@ export class QuotationsService {
       );
     }
 
-    const workOrder = this.workOrderRepo.create({
-      tenantId,
-      vehicleId: quotation.vehicleId,
-      clientId: quotation.clientId,
-      status: 'pending',
-      type: 'repair',
-      priority: 'normal',
-      description: `Created from quotation #${quotation.quoteNumber}. ${quotation.notes || ''}`.trim(),
-      laborCost: quotation.total,
-      totalCost: quotation.total,
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedWorkOrder = await this.workOrderRepo.save(workOrder) as WorkOrder;
+    try {
+      const workOrder = queryRunner.manager.create(WorkOrder, {
+        tenantId,
+        vehicleId: quotation.vehicleId,
+        clientId: quotation.clientId,
+        status: 'pending',
+        type: 'repair',
+        priority: 'normal',
+        description: `Created from quotation #${quotation.quoteNumber}. ${quotation.notes || ''}`.trim(),
+        laborCost: quotation.total,
+        totalCost: quotation.total,
+      });
 
-    quotation.status = 'converted';
-    quotation.workOrderId = savedWorkOrder.id;
-    await this.quotationRepo.save(quotation);
+      const savedWorkOrder = await queryRunner.manager.save(WorkOrder, workOrder);
 
-    return savedWorkOrder;
+      quotation.status = 'converted';
+      quotation.workOrderId = savedWorkOrder.id;
+      await queryRunner.manager.save(Quotation, quotation);
+
+      await queryRunner.commitTransaction();
+      return savedWorkOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

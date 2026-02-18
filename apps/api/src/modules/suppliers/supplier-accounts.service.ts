@@ -5,7 +5,7 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, Between, LessThanOrEqual, MoreThanOrEqual, DataSource } from 'typeorm';
 import { SupplierInvoice } from '../../database/entities/supplier-invoice.entity';
 import { SupplierInvoiceItem } from '../../database/entities/supplier-invoice-item.entity';
 import { SupplierPayment } from '../../database/entities/supplier-payment.entity';
@@ -30,6 +30,7 @@ export class SupplierAccountsService {
     private paymentRepo: Repository<SupplierPayment>,
     @InjectRepository(Supplier)
     private supplierRepo: Repository<Supplier>,
+    private dataSource: DataSource,
   ) {}
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -369,37 +370,49 @@ export class SupplierAccountsService {
       amountClp = Math.round(dto.amount * dto.exchangeRate);
     }
 
-    const payment = this.paymentRepo.create({
-      tenantId,
-      supplierId: dto.supplierId,
-      supplierInvoiceId: dto.supplierInvoiceId,
-      paymentNumber,
-      paymentDate: dto.paymentDate,
-      amount: dto.amount,
-      currency,
-      exchangeRate: dto.exchangeRate,
-      amountClp,
-      paymentMethod: dto.paymentMethod,
-      bankName: dto.bankName,
-      accountNumber: dto.accountNumber,
-      transactionRef: dto.transactionRef,
-      chequeNumber: dto.chequeNumber,
-      chequeDate: dto.chequeDate,
-      chequeBankName: dto.chequeBankName,
-      status: 'PENDING',
-      notes: dto.notes,
-      receiptUrl: dto.receiptUrl,
-      createdBy: userId,
-    });
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    const savedPayment = await this.paymentRepo.save(payment) as SupplierPayment;
+    try {
+      const payment = queryRunner.manager.create(SupplierPayment, {
+        tenantId,
+        supplierId: dto.supplierId,
+        supplierInvoiceId: dto.supplierInvoiceId,
+        paymentNumber,
+        paymentDate: dto.paymentDate,
+        amount: dto.amount,
+        currency,
+        exchangeRate: dto.exchangeRate,
+        amountClp,
+        paymentMethod: dto.paymentMethod,
+        bankName: dto.bankName,
+        accountNumber: dto.accountNumber,
+        transactionRef: dto.transactionRef,
+        chequeNumber: dto.chequeNumber,
+        chequeDate: dto.chequeDate,
+        chequeBankName: dto.chequeBankName,
+        status: 'PENDING',
+        notes: dto.notes,
+        receiptUrl: dto.receiptUrl,
+        createdBy: userId,
+      });
 
-    // Update invoice balances if payment is against an invoice
-    if (invoice) {
-      await this.updateInvoiceBalance(invoice, dto.amount, 'add');
+      const savedPayment = await queryRunner.manager.save(SupplierPayment, payment);
+
+      // Update invoice balances if payment is against an invoice
+      if (invoice) {
+        await this.updateInvoiceBalance(invoice, dto.amount, 'add');
+      }
+
+      await queryRunner.commitTransaction();
+      return this.findOnePayment(tenantId, savedPayment.id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
     }
-
-    return this.findOnePayment(tenantId, savedPayment.id);
   }
 
   async confirmPayment(
@@ -440,19 +453,32 @@ export class SupplierAccountsService {
       throw new BadRequestException('Payment is already voided');
     }
 
-    // Restore invoice balance if payment was against an invoice
-    if (payment.supplierInvoiceId) {
-      const invoice = await this.invoiceRepo.findOne({
-        where: { id: payment.supplierInvoiceId, tenantId },
-      });
-      if (invoice) {
-        await this.updateInvoiceBalance(invoice, Number(payment.amount), 'subtract');
-      }
-    }
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    payment.status = 'VOIDED';
-    await this.paymentRepo.save(payment);
-    return this.findOnePayment(tenantId, id);
+    try {
+      // Restore invoice balance if payment was against an invoice
+      if (payment.supplierInvoiceId) {
+        const invoice = await queryRunner.manager.findOne(SupplierInvoice, {
+          where: { id: payment.supplierInvoiceId, tenantId },
+        });
+        if (invoice) {
+          await this.updateInvoiceBalance(invoice, Number(payment.amount), 'subtract');
+        }
+      }
+
+      payment.status = 'VOIDED';
+      await queryRunner.manager.save(SupplierPayment, payment);
+
+      await queryRunner.commitTransaction();
+      return this.findOnePayment(tenantId, id);
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   async findAllPayments(
