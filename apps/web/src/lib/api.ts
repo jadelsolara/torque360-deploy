@@ -1,3 +1,5 @@
+import { getToken, refreshAccessToken, clearAuth } from './auth';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T> {
@@ -24,11 +26,9 @@ class ApiClient {
       'Content-Type': 'application/json',
     };
 
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('torque_access_token');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     return headers;
@@ -36,9 +36,22 @@ class ApiClient {
 
   private async handleResponse<T>(response: Response): Promise<T> {
     if (response.status === 401) {
+      // Try silent refresh before giving up
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        // Retry the original request once with the new token
+        const retryRes = await fetch(response.url, {
+          method: response.type as string,
+          headers: this.getHeaders(),
+          credentials: 'include',
+        });
+        if (retryRes.ok) {
+          return retryRes.status === 204 ? ({} as T) : retryRes.json();
+        }
+      }
+
+      clearAuth();
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('torque_access_token');
-        localStorage.removeItem('torque_refresh_token');
         window.location.href = '/login';
       }
       throw new Error('No autorizado');
@@ -63,6 +76,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'GET',
       headers: this.getHeaders(),
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -72,6 +86,7 @@ class ApiClient {
       method: 'POST',
       headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -81,6 +96,7 @@ class ApiClient {
       method: 'PUT',
       headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -90,6 +106,7 @@ class ApiClient {
       method: 'PATCH',
       headers: this.getHeaders(),
       body: data ? JSON.stringify(data) : undefined,
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }
@@ -98,6 +115,7 @@ class ApiClient {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: 'DELETE',
       headers: this.getHeaders(),
+      credentials: 'include',
     });
     return this.handleResponse<T>(response);
   }

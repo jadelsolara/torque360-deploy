@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { isAuthenticated, getUser, clearTokens } from '@/lib/auth';
+import { isAuthenticated, getUser, refreshAccessToken, logout } from '@/lib/auth';
 
 // ---------------------------------------------------------------------------
 // Role-based module permissions (mirrors backend RBAC)
@@ -29,18 +29,11 @@ const ROLE_BADGE_COLORS: Record<string, string> = {
 function useCurrentUser() {
   const [user, setUser] = useState<{ role: string; allowedModules?: string[] } | null>(null);
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('torque_access_token');
-      if (token) {
-        try {
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          setUser({ role: payload.role, allowedModules: payload.allowedModules });
-        } catch {
-          setUser({ role: 'VIEWER' });
-        }
-      }
+    const decoded = getUser();
+    if (decoded) {
+      setUser({ role: decoded.role });
     }
-  }, []);
+  });
   return user;
 }
 
@@ -291,20 +284,30 @@ export default function DashboardLayout({
   const filteredNavItems = navItems.filter(item => canAccessModule(currentUser, item.moduleId));
 
   useEffect(() => {
-    setMounted(true);
-    if (!isAuthenticated()) {
-      router.push('/login');
-      return;
+    let cancelled = false;
+    async function init() {
+      // On page refresh the in-memory token is null — try silent refresh first
+      if (!isAuthenticated()) {
+        const restored = await refreshAccessToken();
+        if (!restored && !cancelled) {
+          router.push('/login');
+          return;
+        }
+      }
+      if (cancelled) return;
+      setMounted(true);
+      const user = getUser();
+      if (user) {
+        setUserName(`${user.firstName} ${user.lastName}`);
+        setUserEmail(user.email);
+      }
     }
-    const user = getUser();
-    if (user) {
-      setUserName(`${user.firstName} ${user.lastName}`);
-      setUserEmail(user.email);
-    }
+    init();
+    return () => { cancelled = true; };
   }, [router]);
 
-  function handleLogout() {
-    clearTokens();
+  async function handleLogout() {
+    await logout();
     router.push('/login');
   }
 
